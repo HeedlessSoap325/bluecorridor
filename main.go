@@ -25,6 +25,9 @@ func main() {
 	case "-h", "--help", "help":
 		flag.Usage()
 
+	case "list":
+		listCMD(os.Args[2:])
+
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command: %s\n\n", os.Args[1])
 		flag.Usage()
