@@ -1,9 +1,12 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
+
+	"github.com/moby/moby/client"
 )
 
 func listCMD(args []string) {
@@ -22,6 +25,26 @@ func listCMD(args []string) {
 	if *help {
 		fs.Usage()
 	}
-	
-	fmt.Printf("verbose: %t", *verbose)
+
+	fmt.Printf("verbose: %t\n\n\n", *verbose)
+
+	ctx := context.Background()
+	apiClient, err := client.New()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error occured while creating docker API client: %s\n", err)
+	}
+	defer apiClient.Close()
+
+	containers, err := apiClient.ContainerList(ctx, client.ContainerListOptions{})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error occured while listing docker containers: %s\n", err)
+	}
+
+	if len(containers.Items) <= 0 {
+		fmt.Println("No Containers found")
+	} else {
+		for _, container := range containers.Items {
+			fmt.Println(container.ID)
+		}
+	}
 }
