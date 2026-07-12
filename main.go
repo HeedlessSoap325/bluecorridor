@@ -13,7 +13,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, "Commands:")
 		fmt.Fprintln(os.Stderr, "    help    Print this message")
 		fmt.Fprintln(os.Stderr, "    list    List all resources that can be migrated")
-		fmt.Fprintln(os.Stderr, "\nUse \"<command> help\" for command-specific help.")
+		fmt.Fprintln(os.Stderr, "\nUse \"<command> --help\" for command-specific help.")
 	}
 
 	if len(os.Args) < 2 {

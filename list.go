@@ -9,6 +9,7 @@ import (
 func listCMD(args []string) {
 	fs := flag.NewFlagSet("list", flag.ExitOnError)
 	verbose := fs.Bool("verbose", false, "Print a verbose output")
+	help := fs.Bool("help", false, "Print this message")
 
 	fs.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: %s list [options]\n\n", os.Args[0])
@@ -17,5 +18,10 @@ func listCMD(args []string) {
 	}
 
 	fs.Parse(args)
+
+	if *help {
+		fs.Usage()
+	}
+	
 	fmt.Printf("verbose: %t", *verbose)
 }
