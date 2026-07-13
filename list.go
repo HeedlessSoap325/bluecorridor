@@ -60,4 +60,17 @@ func listCMD(args []string) {
 			fmt.Println(volume.Name)
 		}
 	}
+
+	images, err := apiClient.ImageList(ctx, client.ImageListOptions{})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error occured while listing docker images: %s\n", err)
+	}
+
+	if len(images.Items) <= 0 {
+		fmt.Println("No images found")
+	} else {
+		for _, image := range images.Items {
+			fmt.Println(image.ID)
+		}
+	}
 }
