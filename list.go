@@ -11,7 +11,7 @@ import (
 
 func listCMD(args []string) {
 	fs := flag.NewFlagSet("list", flag.ExitOnError)
-	verbose := fs.Bool("verbose", false, "Print a verbose output")
+	quiet := fs.Bool("quiet", false, "Print a quiet output, with the resources seperated by an empty line")
 	help := fs.Bool("help", false, "Print this message")
 
 	fs.Usage = func() {
@@ -25,8 +25,6 @@ func listCMD(args []string) {
 	if *help {
 		fs.Usage()
 	}
-
-	fmt.Printf("verbose: %t\n\n\n", *verbose)
 
 	ctx := context.Background()
 	apiClient, err := client.New(client.FromEnv)
@@ -42,11 +40,15 @@ func listCMD(args []string) {
 		os.Exit(1)
 	}
 
+	if !*quiet {
+		fmt.Println("Containers:")
+	}
+
 	if len(containers.Items) <= 0 {
-		fmt.Println("No Containers found")
+		fmt.Println("    No Containers found")
 	} else {
 		for _, container := range containers.Items {
-			fmt.Println(container.ID)
+			fmt.Fprintf(os.Stdout, "    %s\n", container.ID)
 		}
 	}
 
@@ -56,11 +58,16 @@ func listCMD(args []string) {
 		os.Exit(1)
 	}
 
+	fmt.Println()
+	if !*quiet {
+		fmt.Println("Volumes:")
+	}
+
 	if len(volumes.Items) <= 0 {
-		fmt.Println("No volumes found")
+		fmt.Println("    No volumes found")
 	} else {
 		for _, volume := range volumes.Items {
-			fmt.Println(volume.Name)
+			fmt.Fprintf(os.Stdout, "    %s\n", volume.Name)
 		}
 	}
 
@@ -70,11 +77,16 @@ func listCMD(args []string) {
 		os.Exit(1)
 	}
 
+	fmt.Println()
+	if !*quiet {
+		fmt.Println("Images:")
+	}
+
 	if len(images.Items) <= 0 {
-		fmt.Println("No images found")
+		fmt.Println("    No images found")
 	} else {
 		for _, image := range images.Items {
-			fmt.Println(image.ID)
+			fmt.Fprintf(os.Stdout, "    %s\n", image.ID)
 		}
 	}
 }
