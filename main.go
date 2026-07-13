@@ -13,6 +13,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, "Commands:")
 		fmt.Fprintln(os.Stderr, "    help    Print this message")
 		fmt.Fprintln(os.Stderr, "    list    List all resources that can be migrated")
+		fmt.Fprintln(os.Stderr, "    export  Export all resources that can be migrated")
 		fmt.Fprintln(os.Stderr, "\nUse \"<command> --help\" for command-specific help.")
 	}
 
@@ -27,6 +28,9 @@ func main() {
 
 	case "list":
 		listCMD(os.Args[2:])
+
+	case "export":
+		exportCMD(os.Args[2:])
 
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command: %s\n\n", os.Args[1])
