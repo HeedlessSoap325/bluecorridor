@@ -29,15 +29,17 @@ func listCMD(args []string) {
 	fmt.Printf("verbose: %t\n\n\n", *verbose)
 
 	ctx := context.Background()
-	apiClient, err := client.New()
+	apiClient, err := client.New(client.FromEnv)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error occured while creating docker API client: %s\n", err)
+		os.Exit(1)
 	}
 	defer apiClient.Close()
 
 	containers, err := apiClient.ContainerList(ctx, client.ContainerListOptions{All: true})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error occured while listing docker containers: %s\n", err)
+		os.Exit(1)
 	}
 
 	if len(containers.Items) <= 0 {
@@ -51,6 +53,7 @@ func listCMD(args []string) {
 	volumes, err := apiClient.VolumeList(ctx, client.VolumeListOptions{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error occured while listing docker volumes: %s\n", err)
+		os.Exit(1)
 	}
 
 	if len(volumes.Items) <= 0 {
@@ -64,6 +67,7 @@ func listCMD(args []string) {
 	images, err := apiClient.ImageList(ctx, client.ImageListOptions{All: true})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error occured while listing docker images: %s\n", err)
+		os.Exit(1)
 	}
 
 	if len(images.Items) <= 0 {
