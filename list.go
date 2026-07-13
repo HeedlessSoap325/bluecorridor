@@ -47,4 +47,17 @@ func listCMD(args []string) {
 			fmt.Println(container.ID)
 		}
 	}
+
+	volumes, err := apiClient.VolumeList(ctx, client.VolumeListOptions{})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error occured while listing docker volumes: %s\n", err)
+	}
+
+	if len(volumes.Items) <= 0 {
+		fmt.Println("No volumes found")
+	} else {
+		for _, volume := range volumes.Items {
+			fmt.Println(volume.Name)
+		}
+	}
 }
