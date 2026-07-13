@@ -35,7 +35,7 @@ func listCMD(args []string) {
 	}
 	defer apiClient.Close()
 
-	containers, err := apiClient.ContainerList(ctx, client.ContainerListOptions{})
+	containers, err := apiClient.ContainerList(ctx, client.ContainerListOptions{All: true})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error occured while listing docker containers: %s\n", err)
 	}
@@ -61,7 +61,7 @@ func listCMD(args []string) {
 		}
 	}
 
-	images, err := apiClient.ImageList(ctx, client.ImageListOptions{})
+	images, err := apiClient.ImageList(ctx, client.ImageListOptions{All: true})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error occured while listing docker images: %s\n", err)
 	}
