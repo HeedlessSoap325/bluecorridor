@@ -16,6 +16,7 @@ type DockerState struct {
 
 func exportCMD(args []string) {
 	fs := flag.NewFlagSet("export", flag.ExitOnError)
+	output := fs.String("output", "docker-export.json", "The path in which to place the export file")
 	help := fs.Bool("help", false, "Print this message")
 
 	fs.Usage = func() {
@@ -60,5 +61,5 @@ func exportCMD(args []string) {
 		os.Exit(1)
 	}
 
-	os.WriteFile("docker-export.json", data, 0644)
+	os.WriteFile(*output, data, 0644)
 }
