@@ -10,7 +10,7 @@ import (
 	"github.com/moby/moby/client"
 )
 
-type ContainersState struct {
+type DockerState struct {
 	Containers []client.ContainerInspectResult `json:"containers"`
 }
 
@@ -44,7 +44,7 @@ func exportCMD(args []string) {
 		os.Exit(1)
 	}
 
-	var state ContainersState
+	var state DockerState
 	for _, container := range containers.Items {
 		inspect, err := apiClient.ContainerInspect(ctx, container.ID, client.ContainerInspectOptions{})
 		if err != nil {
