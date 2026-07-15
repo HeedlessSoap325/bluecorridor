@@ -11,6 +11,7 @@ import (
 )
 
 type DockerState struct {
+	Images []client.ImageInspectResult `json:"images"`
 	Volumes []client.VolumeInspectResult`json:"volumes"`
 	Containers []client.ContainerInspectResult `json:"containers"`
 }
@@ -41,6 +42,22 @@ func exportCMD(args []string) {
 	defer apiClient.Close()
 
 	var state DockerState
+
+	images, err := apiClient.ImageList(ctx, client.ImageListOptions{All: true})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error occured while listing docker images: %s\n", err)
+		os.Exit(1)
+	}
+
+	for _, image := range images.Items {
+		inspect, err := apiClient.ImageInspect(ctx, image.ID, client.ImageInspectWithManifests(true))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error occured while inspecting volume: %s\n", err)
+			os.Exit(1)
+		}
+		state.Images = append(state.Images, inspect)
+	}
+	
 
 	// TODO: Create dummy container to dump the volume content
 	volumes, err := apiClient.VolumeList(ctx, client.VolumeListOptions{})
