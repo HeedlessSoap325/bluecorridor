@@ -42,13 +42,14 @@ func exportCMD(args []string) {
 
 	var state DockerState
 
+	// TODO: Create dummy container to dump the volume content
 	volumes, err := apiClient.VolumeList(ctx, client.VolumeListOptions{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error occured while listing docker volumes: %s\n", err)
 		os.Exit(1)
 	}
 
-	for _, volume := range volumVolumes []client.VolumeInspectResult`json:"volumes"`es.Items {
+	for _, volume := range volumes.Items {
 		inspect, err := apiClient.VolumeInspect(ctx, volume.Name, client.VolumeInspectOptions{})
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error occured while inspecting volume: %s\n", err)
