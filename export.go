@@ -11,6 +11,7 @@ import (
 )
 
 type DockerState struct {
+	Volumes []client.VolumeInspectResult`json:"volumes"`
 	Containers []client.ContainerInspectResult `json:"containers"`
 }
 
@@ -39,13 +40,29 @@ func exportCMD(args []string) {
 	}
 	defer apiClient.Close()
 
+	var state DockerState
+
+	volumes, err := apiClient.VolumeList(ctx, client.VolumeListOptions{})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error occured while listing docker volumes: %s\n", err)
+		os.Exit(1)
+	}
+
+	for _, volume := range volumVolumes []client.VolumeInspectResult`json:"volumes"`es.Items {
+		inspect, err := apiClient.VolumeInspect(ctx, volume.Name, client.VolumeInspectOptions{})
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error occured while inspecting volume: %s\n", err)
+			os.Exit(1)
+		}
+		state.Volumes = append(state.Volumes, inspect)
+	}
+
 	containers, err := apiClient.ContainerList(ctx, client.ContainerListOptions{All: true})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error occured while listing docker containers: %s\n", err)
 		os.Exit(1)
 	}
 
-	var state DockerState
 	for _, container := range containers.Items {
 		inspect, err := apiClient.ContainerInspect(ctx, container.ID, client.ContainerInspectOptions{})
 		if err != nil {
