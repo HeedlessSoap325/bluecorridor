@@ -11,8 +11,9 @@ import (
 )
 
 type DockerState struct {
-	Images []client.ImageInspectResult `json:"images"`
-	Volumes []client.VolumeInspectResult`json:"volumes"`
+	Images     []client.ImageInspectResult     `json:"images"`
+	Volumes    []client.VolumeInspectResult    `json:"volumes"`
+	Networks   []client.NetworkInspectResult   `json:"networks"`
 	Containers []client.ContainerInspectResult `json:"containers"`
 }
 
@@ -57,7 +58,6 @@ func exportCMD(args []string) {
 		}
 		state.Images = append(state.Images, inspect)
 	}
-	
 
 	// TODO: Create dummy container to dump the volume content
 	volumes, err := apiClient.VolumeList(ctx, client.VolumeListOptions{})
@@ -73,6 +73,21 @@ func exportCMD(args []string) {
 			os.Exit(1)
 		}
 		state.Volumes = append(state.Volumes, inspect)
+	}
+
+	networks, err := apiClient.NetworkList(ctx, client.NetworkListOptions{})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error occured while listing docker networks: %s\n", err)
+		os.Exit(1)
+	}
+
+	for _, network := range networks.Items {
+		inspect, err := apiClient.NetworkInspect(ctx, network.ID, client.NetworkInspectOptions{})
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error occured while inspecting network: %s\n", err)
+			os.Exit(1)
+		}
+		state.Networks = append(state.Networks, inspect)
 	}
 
 	containers, err := apiClient.ContainerList(ctx, client.ContainerListOptions{All: true})
