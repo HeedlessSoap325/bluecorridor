@@ -48,7 +48,7 @@ func listCMD(args []string) {
 		fmt.Println("    No Containers found")
 	} else {
 		for _, container := range containers.Items {
-			fmt.Fprintf(os.Stdout, "    %s\n", container.ID)
+			fmt.Fprintf(os.Stdout, "    %s\n", container.Names[0])
 		}
 	}
 
@@ -86,7 +86,7 @@ func listCMD(args []string) {
 		fmt.Println("    No images found")
 	} else {
 		for _, image := range images.Items {
-			fmt.Fprintf(os.Stdout, "    %s\n", image.ID)
+			fmt.Fprintf(os.Stdout, "    %s\n", image.RepoTags[0])
 		}
 	}
 
@@ -105,7 +105,7 @@ func listCMD(args []string) {
 		fmt.Println("    No networks found")
 	} else {
 		for _, network := range networks.Items {
-			fmt.Fprintf(os.Stdout, "    %s\n", network.ID)
+			fmt.Fprintf(os.Stdout, "    %s\n", network.Name)
 		}
 	}
 }
