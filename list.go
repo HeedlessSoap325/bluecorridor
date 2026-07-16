@@ -89,4 +89,23 @@ func listCMD(args []string) {
 			fmt.Fprintf(os.Stdout, "    %s\n", image.ID)
 		}
 	}
+
+	networks, err := apiClient.NetworkList(ctx, client.NetworkListOptions{})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error occured while listing docker networks: %s\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Println()
+	if !*quiet {
+		fmt.Println("Networks:")
+	}
+
+	if len(networks.Items) <= 0 {
+		fmt.Println("    No networks found")
+	} else {
+		for _, network := range networks.Items {
+			fmt.Fprintf(os.Stdout, "    %s\n", network.ID)
+		}
+	}
 }
