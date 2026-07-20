@@ -68,9 +68,31 @@ func importCMD(args []string) {
 		windowHeight := 5
 		window := make([]string, 0, windowHeight)
 		printed := 0
+		previousMsg := ""
 
 		for m := range msgs {
-			window = append(window, m.Status)
+			if m.Progress != nil {
+				var s string
+				if m.Progress.HideCounts {
+					s = fmt.Sprintf("%s %d%s", m.Status, m.Progress.Current, m.Progress.Units)
+				} else {
+					var unit string
+					if unit = "B"; m.Progress.Units != "" {
+						unit = m.Progress.Units
+					}
+					s = fmt.Sprintf("%s %d%s/%d%s", m.Status, m.Progress.Current, unit, m.Progress.Total, unit)
+				}
+
+				if m.Status == previousMsg {
+					window[printed-1] = s // This is okay, because prviosMsg will be empty, unless printed is >= 1
+				} else {
+					window = append(window, s)
+				}
+			} else if m.Status != previousMsg {
+				window = append(window, m.Status)
+			}
+			previousMsg = m.Status
+
 			if len(window) > windowHeight {
 				window = window[1:]
 			}
