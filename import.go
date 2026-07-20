@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"encoding/json"
 )
 
 func importCMD(args []string) {
@@ -23,5 +24,16 @@ func importCMD(args []string) {
 		fs.Usage()
 	}
 
-	fmt.Fprintf(os.Stdout, "%s\n", *file)
+	raw, err := os.ReadFile(*file)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error occured while reading File %s: %s\n", *file, err)
+		os.Exit(1)
+	}
+
+	var state DockerState
+	
+	if json.Unmarshal(raw, &state) != nil {
+		fmt.Fprintf(os.Stderr, "Error occured while parsing JSON: %s\n", err)
+		os.Exit(1)
+	}
 }
