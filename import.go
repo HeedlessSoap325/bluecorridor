@@ -50,6 +50,11 @@ func importCMD(args []string) {
 	defer apiClient.Close()
 
 	for _, inspect := range state.Images {
+		if len(inspect.RepoTags) <= 0 {
+			fmt.Fprintln(os.Stderr, "UNIMPLEMENTED: Image had no RepoTags")
+			continue
+		}
+		fmt.Fprintf(os.Stdout, "Pulling Image '%s'\n", inspect.RepoTags[0])
 		// TODO: The code assumes the images are pullable!
 		// In the future, the code should check Image availability and otherwise fall back on the image save in the export
 		res, err := apiClient.ImagePull(ctx, inspect.RepoTags[0], client.ImagePullOptions{})
@@ -59,10 +64,43 @@ func importCMD(args []string) {
 			os.Exit(1)
 		}
 
-		msg := res.JSONMessages(ctx)
-		for m := range msg {
-			fmt.Fprintf(os.Stdout, "\033[H\033[2J%s\n", m.Status)
+		msgs := res.JSONMessages(ctx)
+		windowHeight := 5
+		window := make([]string, 0, windowHeight)
+		printed := 0
+
+		for m := range msgs {
+			window = append(window, m.Status)
+			if len(window) > windowHeight {
+				window = window[1:]
+			}
+
+			// Move cursor back to the start of the previous window
+			if printed > 0 {
+				fmt.Fprintf(os.Stdout, "\033[%dA", printed)
+			}
+
+			for _, line := range window {
+				// Print line, but clear the line beforehand
+				fmt.Fprintf(os.Stdout, "\033[2K\033[38;5;245m    %s\033[0m\n", line)
+			}
+			printed = len(window)
 		}
+
+		printed += 1 // Also clear initial "Pulling Image ..." text
+		if printed > 0 {
+			// Move cursor back to the start of the previous window
+			fmt.Fprintf(os.Stdout, "\033[%dA", printed)
+
+			// Clear the lines of the previous window
+			for i := 0; i < printed; i++ {
+				fmt.Fprintf(os.Stdout, "\033[2K\n")
+			}
+
+			// Move cursor back to the start of the previous window
+			fmt.Fprintf(os.Stdout, "\033[%dA", printed)
+		}
+
 		fmt.Fprintf(os.Stdout, "Successfully pulled image '%s'\n", inspect.RepoTags[0])
 	}
 
