@@ -49,6 +49,23 @@ func importCMD(args []string) {
 	}
 	defer apiClient.Close()
 
+	for _, inspect := range state.Images {
+		// TODO: The code assumes the images are pullable!
+		// In the future, the code should check Image availability and otherwise fall back on the image save in the export
+		res, err := apiClient.ImagePull(ctx, inspect.RepoTags[0], client.ImagePullOptions{})
+
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error occured while pulling docker image: %s\n", err)
+			os.Exit(1)
+		}
+
+		msg := res.JSONMessages(ctx)
+		for m := range msg {
+			fmt.Fprintf(os.Stdout, "\033[H\033[2J%s\n", m.Status)
+		}
+		fmt.Fprintf(os.Stdout, "Successfully pulled image '%s'\n", inspect.RepoTags[0])
+	}
+
 	for _, inspect := range state.Containers {
 		_, err := apiClient.ContainerCreate(ctx, client.ContainerCreateOptions{
 			Config:     inspect.Container.Config,
