@@ -1,10 +1,14 @@
 package main
 
 import (
+	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
-	"encoding/json"
+
+	"github.com/moby/moby/api/types/network"
+	"github.com/moby/moby/client"
 )
 
 func importCMD(args []string) {
@@ -31,9 +35,34 @@ func importCMD(args []string) {
 	}
 
 	var state DockerState
-	
+
 	if json.Unmarshal(raw, &state) != nil {
 		fmt.Fprintf(os.Stderr, "Error occured while parsing JSON: %s\n", err)
 		os.Exit(1)
+	}
+
+	ctx := context.Background()
+	apiClient, err := client.New(client.FromEnv)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error occured while creating docker API client: %s\n", err)
+		os.Exit(1)
+	}
+	defer apiClient.Close()
+
+	for _, inspect := range state.Containers {
+		_, err := apiClient.ContainerCreate(ctx, client.ContainerCreateOptions{
+			Config:     inspect.Container.Config,
+			HostConfig: inspect.Container.HostConfig,
+			NetworkingConfig: &network.NetworkingConfig{
+				EndpointsConfig: inspect.Container.NetworkSettings.Networks,
+			},
+			Platform: nil,
+			Name:     inspect.Container.Name,
+		})
+
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error occured while creating docker container: %s\n", err)
+			os.Exit(1)
+		}
 	}
 }
