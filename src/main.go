@@ -1,44 +1,15 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"os"
+
+	"github.com/heedlesssoap325/bluecorridor/commands"
 )
 
 func main() {
-	// Top-level usage/help message
-	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage: %s <command> [arguments]\n\n", os.Args[0])
-		fmt.Fprintln(os.Stderr, "Commands:")
-		fmt.Fprintln(os.Stderr, "    help    Print this message")
-		fmt.Fprintln(os.Stderr, "    list    List all resources that can be migrated")
-		fmt.Fprintln(os.Stderr, "    export  Export all resources that can be migrated")
-		fmt.Fprintln(os.Stderr, "    import  Import all resources")
-		fmt.Fprintln(os.Stderr, "\nUse \"<command> --help\" for command-specific help.")
-	}
-
-	if len(os.Args) < 2 {
-		flag.Usage()
-		os.Exit(1)
-	}
-
-	switch os.Args[1] {
-	case "-h", "--help", "help":
-		flag.Usage()
-
-	case "list":
-		listCMD(os.Args[2:])
-
-	case "export":
-		exportCMD(os.Args[2:])
-
-	case "import":
-		importCMD(os.Args[2:])
-
-	default:
-		fmt.Fprintf(os.Stderr, "Unknown command: %s\n\n", os.Args[1])
-		flag.Usage()
+	if err := commands.HandleCommand(); err != nil {
+		fmt.Fprintf(os.Stderr, "\033[31mERROR: %s\033[0m\n", err)
 		os.Exit(1)
 	}
 }
