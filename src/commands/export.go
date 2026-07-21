@@ -10,13 +10,6 @@ import (
 	"github.com/moby/moby/client"
 )
 
-type DockerState struct {
-	Images     []client.ImageInspectResult     `json:"images"`
-	Volumes    []client.VolumeInspectResult    `json:"volumes"`
-	Networks   []client.NetworkInspectResult   `json:"networks"`
-	Containers []client.ContainerInspectResult `json:"containers"`
-}
-
 func exportCMD(args []string) error {
 	fs := flag.NewFlagSet("export", flag.ExitOnError)
 	output := fs.String("output", "docker-export.json", "The path in which to place the export file")
@@ -42,7 +35,7 @@ func exportCMD(args []string) error {
 	}
 	defer apiClient.Close()
 
-	var state DockerState
+	var state dockerState
 
 	images, err := apiClient.ImageList(ctx, client.ImageListOptions{All: true})
 	if err != nil {

@@ -34,7 +34,7 @@ func importCMD(args []string) error {
 		os.Exit(1)
 	}
 
-	var state DockerState
+	var state dockerState
 
 	if json.Unmarshal(raw, &state) != nil {
 		fmt.Fprintf(os.Stderr, "Error occured while parsing JSON: %s\n", err)
