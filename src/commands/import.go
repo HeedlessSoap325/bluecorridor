@@ -11,7 +11,7 @@ import (
 	"github.com/moby/moby/client"
 )
 
-func importCMD(args []string) {
+func importCMD(args []string) error {
 	fs := flag.NewFlagSet("export", flag.ExitOnError)
 	file := flag.String("file", "docker-export.json", "The file from which to import docker")
 	help := fs.Bool("help", false, "Print this message")
@@ -142,4 +142,6 @@ func importCMD(args []string) {
 			os.Exit(1)
 		}
 	}
+
+	return nil
 }

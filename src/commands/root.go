@@ -23,23 +23,24 @@ func HandleCommand() error {
 		return fmt.Errorf("Insufficient number of argumnets provided")
 	}
 
+	var err error = nil
 	switch os.Args[1] {
 	case "-h", "--help", "help":
 		flag.Usage()
 
 	case "list":
-		listCMD(os.Args[2:])
+		err = listCMD(os.Args[2:])
 
 	case "export":
-		exportCMD(os.Args[2:])
+		err = exportCMD(os.Args[2:])
 
 	case "import":
-		importCMD(os.Args[2:])
+		err = importCMD(os.Args[2:])
 
 	default:
 		flag.Usage()
-		return fmt.Errorf("Unknown command: %s\n\n", os.Args[1])
+		err = fmt.Errorf("Unknown command: %s", os.Args[1])
 	}
 
-	return nil
+	return err
 }

@@ -17,7 +17,7 @@ type DockerState struct {
 	Containers []client.ContainerInspectResult `json:"containers"`
 }
 
-func exportCMD(args []string) {
+func exportCMD(args []string) error {
 	fs := flag.NewFlagSet("export", flag.ExitOnError)
 	output := fs.String("output", "docker-export.json", "The path in which to place the export file")
 	help := fs.Bool("help", false, "Print this message")
@@ -112,4 +112,6 @@ func exportCMD(args []string) {
 	}
 
 	os.WriteFile(*output, data, 0644)
+
+	return nil
 }

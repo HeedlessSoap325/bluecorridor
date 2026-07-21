@@ -9,7 +9,7 @@ import (
 	"github.com/moby/moby/client"
 )
 
-func listCMD(args []string) {
+func listCMD(args []string) error {
 	fs := flag.NewFlagSet("list", flag.ExitOnError)
 	quiet := fs.Bool("quiet", false, "Print a quiet output, with the resources seperated by an empty line")
 	help := fs.Bool("help", false, "Print this message")
@@ -108,4 +108,6 @@ func listCMD(args []string) {
 			fmt.Fprintf(os.Stdout, "    %s\n", network.Name)
 		}
 	}
+
+	return nil
 }

@@ -9,7 +9,7 @@ import (
 
 func main() {
 	if err := commands.HandleCommand(); err != nil {
-		fmt.Fprintf(os.Stderr, "\033[31mERROR: %s\033[0m\n", err)
+		fmt.Fprintf(os.Stderr, "\033[31m%s\033[0m\n", err)
 		os.Exit(1)
 	}
 }
