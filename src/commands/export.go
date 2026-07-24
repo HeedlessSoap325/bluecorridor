@@ -10,7 +10,7 @@ import (
 	"github.com/moby/moby/client"
 )
 
-func exportCMD(args []string) error {
+func handleExport(args []string) error {
 	fs := flag.NewFlagSet("export", flag.ExitOnError)
 	output := fs.String("output", "docker-export.json", "The path in which to place the export file")
 	help := fs.Bool("help", false, "Print this message")

@@ -36,13 +36,13 @@ func HandleCommand() error {
 		flag.Usage()
 
 	case "list":
-		err = listCMD(os.Args[2:])
+		err = handleList(os.Args[2:])
 
 	case "export":
-		err = exportCMD(os.Args[2:])
+		err = handleExport(os.Args[2:])
 
 	case "import":
-		err = importCMD(os.Args[2:])
+		err = handleImport(os.Args[2:])
 
 	default:
 		flag.Usage()

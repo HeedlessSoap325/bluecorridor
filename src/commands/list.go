@@ -9,7 +9,7 @@ import (
 	"github.com/moby/moby/client"
 )
 
-func listCMD(args []string) error {
+func handleList(args []string) error {
 	fs := flag.NewFlagSet("list", flag.ExitOnError)
 	quiet := fs.Bool("quiet", false, "Print a quiet output, with the resources seperated by an empty line")
 	help := fs.Bool("help", false, "Print this message")
