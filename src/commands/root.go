@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/heedlesssoap325/bluecorridor/internal"
+	"github.com/heedlesssoap325/bluecorridor/internal/docker"
 )
 
 func HandleCommand() error {
@@ -25,10 +25,10 @@ func HandleCommand() error {
 		return fmt.Errorf("Insufficient number of argumnets provided")
 	}
 
-	if err := internal.InitializeDockerClient(); err != nil {
+	if err := docker.InitializeDockerClient(); err != nil {
 		return fmt.Errorf("Error while initializing docker API client: %s", err)
 	}
-	defer internal.DeinitializeDockerClient()
+	defer docker.DeinitializeDockerClient()
 
 	var err error = nil
 	switch os.Args[1] {
