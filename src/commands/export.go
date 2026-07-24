@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/heedlesssoap325/bluecorridor/internal/docker"
 	"github.com/moby/moby/client"
 )
 
@@ -37,18 +38,17 @@ func handleExport(args []string) error {
 
 	var state dockerState
 
-	images, err := apiClient.ImageList(ctx, client.ImageListOptions{All: true})
+	images, err := docker.ImageList(nil)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error occured while listing docker images: %s\n", err)
-		os.Exit(1)
+		return err
 	}
 
-	for _, image := range images.Items {
-		inspect, err := apiClient.ImageInspect(ctx, image.ID, client.ImageInspectWithManifests(true))
+	for _, image := range images {
+		inspect, err := docker.ImageInspect(image.ID)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error occured while inspecting volume: %s\n", err)
-			os.Exit(1)
+			return err
 		}
+
 		state.Images = append(state.Images, inspect)
 	}
 

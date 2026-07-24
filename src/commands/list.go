@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/heedlesssoap325/bluecorridor/internal/docker"
 	"github.com/moby/moby/client"
 )
 
@@ -71,10 +72,9 @@ func handleList(args []string) error {
 		}
 	}
 
-	images, err := apiClient.ImageList(ctx, client.ImageListOptions{All: true})
+	images, err := docker.ImageList(nil)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error occured while listing docker images: %s\n", err)
-		os.Exit(1)
+		return err
 	}
 
 	fmt.Println()
@@ -82,10 +82,10 @@ func handleList(args []string) error {
 		fmt.Println("Images:")
 	}
 
-	if len(images.Items) <= 0 {
+	if len(images) <= 0 {
 		fmt.Println("    No images found")
 	} else {
-		for _, image := range images.Items {
+		for _, image := range images {
 			fmt.Fprintf(os.Stdout, "    %s\n", image.RepoTags[0])
 		}
 	}
