@@ -56,6 +56,7 @@ func handleImport(args []string) error {
 			return err
 		}
 
+		printing.MoveCursorUpNLines(1)
 		printing.ClearCurrentLine() // Clear the "Pulling Image ..." line
 		printing.PrintWithColoredForeground(os.Stdout, printing.SUCCESS, "Successfully pulled image '%s'", inspect.RepoTags[0])
 	}

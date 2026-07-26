@@ -118,6 +118,4 @@ func imagePullPrettyprint(pullResponse client.ImagePullResponse) {
 	if printed > 0 {
 		printing.ClearNLinesAndPositionCursorAtStart(printed)
 	}
-
-	printing.MoveCursorUpNLines(1)
 }
