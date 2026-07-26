@@ -87,8 +87,7 @@ func handleExport(args []string) error {
 
 	data, err := json.MarshalIndent(state, "", "    ")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error occured while creating JSON: %s\n", err)
-		os.Exit(1)
+		return fmt.Errorf("Error occured while creating JSON: %s", err)
 	}
 
 	os.WriteFile(*output, data, 0644)

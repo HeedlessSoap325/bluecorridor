@@ -31,15 +31,13 @@ func handleImport(args []string) error {
 
 	raw, err := os.ReadFile(*file)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error occured while reading File %s: %s\n", *file, err)
-		os.Exit(1)
+		return fmt.Errorf("Error occured while reading File %s: %s", *file, err)
 	}
 
 	var state dockerState
 
 	if json.Unmarshal(raw, &state) != nil {
-		fmt.Fprintf(os.Stderr, "Error occured while parsing JSON: %s\n", err)
-		os.Exit(1)
+		return fmt.Errorf("Error occured while parsing JSON: %s", err)
 	}
 
 	for _, inspect := range state.Images {
