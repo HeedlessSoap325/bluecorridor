@@ -1,13 +1,11 @@
 package commands
 
 import (
-	"context"
 	"flag"
 	"fmt"
 	"os"
 
 	"github.com/heedlesssoap325/bluecorridor/internal/docker"
-	"github.com/moby/moby/client"
 )
 
 func handleList(args []string) error {
@@ -26,14 +24,6 @@ func handleList(args []string) error {
 	if *help {
 		fs.Usage()
 	}
-
-	ctx := context.Background()
-	apiClient, err := client.New(client.FromEnv)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error occured while creating docker API client: %s\n", err)
-		os.Exit(1)
-	}
-	defer apiClient.Close()
 
 	containers, err := docker.ContainerList(nil)
 	if err != nil {
