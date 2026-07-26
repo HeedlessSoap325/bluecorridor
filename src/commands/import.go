@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -42,14 +41,6 @@ func handleImport(args []string) error {
 		fmt.Fprintf(os.Stderr, "Error occured while parsing JSON: %s\n", err)
 		os.Exit(1)
 	}
-
-	ctx := context.Background()
-	apiClient, err := client.New(client.FromEnv)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error occured while creating docker API client: %s\n", err)
-		os.Exit(1)
-	}
-	defer apiClient.Close()
 
 	for _, inspect := range state.Images {
 		if len(inspect.RepoTags) <= 0 {
