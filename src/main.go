@@ -9,7 +9,7 @@ import (
 
 func main() {
 	if err := commands.HandleCommand(); err != nil {
-		printing.PrintWithColoredForeground(os.Stderr, printing.ERROR, "%s\n", err)
+		printing.PrintWithColoredForeground(os.Stderr, printing.ERROR, "%s", err)
 		os.Exit(1)
 	}
 }
