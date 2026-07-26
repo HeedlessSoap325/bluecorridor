@@ -81,18 +81,17 @@ func handleExport(args []string) error {
 		state.Networks = append(state.Networks, inspect)
 	}
 
-	containers, err := apiClient.ContainerList(ctx, client.ContainerListOptions{All: true})
+	containers, err := docker.ContainerList(nil)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error occured while listing docker containers: %s\n", err)
-		os.Exit(1)
+		return err
 	}
 
-	for _, container := range containers.Items {
-		inspect, err := apiClient.ContainerInspect(ctx, container.ID, client.ContainerInspectOptions{})
+	for _, container := range containers {
+		inspect, err := docker.ContainerInspect(container.ID)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error occured while inspecting container: %s\n", err)
-			os.Exit(1)
+			return err
 		}
+
 		state.Containers = append(state.Containers, inspect)
 	}
 

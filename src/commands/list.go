@@ -35,20 +35,19 @@ func handleList(args []string) error {
 	}
 	defer apiClient.Close()
 
-	containers, err := apiClient.ContainerList(ctx, client.ContainerListOptions{All: true})
+	containers, err := docker.ContainerList(nil)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error occured while listing docker containers: %s\n", err)
-		os.Exit(1)
+		return err
 	}
 
 	if !*quiet {
 		fmt.Println("Containers:")
 	}
 
-	if len(containers.Items) <= 0 {
+	if len(containers) <= 0 {
 		fmt.Println("    No Containers found")
 	} else {
-		for _, container := range containers.Items {
+		for _, container := range containers {
 			fmt.Fprintf(os.Stdout, "    %s\n", container.Names[0])
 		}
 	}
