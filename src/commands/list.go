@@ -89,10 +89,9 @@ func handleList(args []string) error {
 		}
 	}
 
-	networks, err := apiClient.NetworkList(ctx, client.NetworkListOptions{})
+	networks, err := docker.NetworkList(nil)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error occured while listing docker networks: %s\n", err)
-		os.Exit(1)
+		return err
 	}
 
 	fmt.Println()
@@ -100,10 +99,10 @@ func handleList(args []string) error {
 		fmt.Println("Networks:")
 	}
 
-	if len(networks.Items) <= 0 {
+	if len(networks) <= 0 {
 		fmt.Println("    No networks found")
 	} else {
-		for _, network := range networks.Items {
+		for _, network := range networks {
 			fmt.Fprintf(os.Stdout, "    %s\n", network.Name)
 		}
 	}

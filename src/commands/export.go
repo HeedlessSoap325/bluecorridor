@@ -63,22 +63,21 @@ func handleExport(args []string) error {
 		if err != nil {
 			return err
 		}
-		
+
 		state.Volumes = append(state.Volumes, inspect)
 	}
 
-	networks, err := apiClient.NetworkList(ctx, client.NetworkListOptions{})
+	networks, err := docker.NetworkList(nil)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error occured while listing docker networks: %s\n", err)
-		os.Exit(1)
+		return err
 	}
 
-	for _, network := range networks.Items {
-		inspect, err := apiClient.NetworkInspect(ctx, network.ID, client.NetworkInspectOptions{})
+	for _, network := range networks {
+		inspect, err := docker.NetworkInspect(network.ID)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error occured while inspecting network: %s\n", err)
-			os.Exit(1)
+			return err
 		}
+
 		state.Networks = append(state.Networks, inspect)
 	}
 
