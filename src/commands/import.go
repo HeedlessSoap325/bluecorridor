@@ -71,7 +71,7 @@ func handleImport(args []string) error {
 	}
 
 	for _, inspect := range state.Containers {
-		_, err := apiClient.ContainerCreate(ctx, client.ContainerCreateOptions{
+		id, err := docker.ContainerCreate(client.ContainerCreateOptions{
 			Config:     inspect.Container.Config,
 			HostConfig: inspect.Container.HostConfig,
 			NetworkingConfig: &network.NetworkingConfig{
@@ -82,9 +82,10 @@ func handleImport(args []string) error {
 		})
 
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error occured while creating docker container: %s\n", err)
-			os.Exit(1)
+			return err
 		}
+
+		printing.PrintWithColoredForeground(os.Stdout, printing.SUCCESS, "Successfully created container '%s': %s", inspect.Container.Name, id)
 	}
 
 	return nil

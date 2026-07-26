@@ -2,7 +2,9 @@ package docker
 
 import (
 	"fmt"
+	"os"
 
+	"github.com/heedlesssoap325/bluecorridor/internal/printing"
 	"github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/client"
 )
@@ -35,4 +37,25 @@ func ContainerInspect(containerID string) (client.ContainerInspectResult, error)
 	}
 
 	return inspect, nil
+}
+
+func ContainerCreate(opts client.ContainerCreateOptions) (string, error) {
+	res, err := dockerClient.ContainerCreate(ctx, opts)
+
+	if err != nil {
+		return "", fmt.Errorf("Error occured while creating docker container: %s\n", err)
+	}
+
+	if len(res.Warnings) > 0 {
+		printContainerCreationWarnings(opts.Name, res.Warnings)
+	}
+
+	return res.ID, nil
+}
+
+func printContainerCreationWarnings(name string, warnings []string) {
+	printing.PrintWithColoredForeground(os.Stdout, printing.WARNING, "[WARNING] Warnings occured while creating container '%s'", name)
+	for warning := range warnings {
+		printing.PrintWithColoredForeground(os.Stdout, printing.WARNING, "    %s", warning)
+	}
 }
