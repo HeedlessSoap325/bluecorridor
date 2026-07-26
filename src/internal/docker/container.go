@@ -55,7 +55,7 @@ func ContainerCreate(opts client.ContainerCreateOptions) (string, error) {
 
 func printContainerCreationWarnings(name string, warnings []string) {
 	printing.PrintWithColoredForeground(os.Stdout, printing.WARNING, "[WARNING] Warnings occured while creating container '%s'", name)
-	for warning := range warnings {
+	for _, warning := range warnings {
 		printing.PrintWithColoredForeground(os.Stdout, printing.WARNING, "    %s", warning)
 	}
 }
