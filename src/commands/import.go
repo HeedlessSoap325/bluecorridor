@@ -9,6 +9,7 @@ import (
 	"github.com/heedlesssoap325/bluecorridor/internal/docker"
 	"github.com/heedlesssoap325/bluecorridor/internal/printing"
 	"github.com/moby/moby/api/types/network"
+	"github.com/moby/moby/api/types/volume"
 	"github.com/moby/moby/client"
 )
 
@@ -57,6 +58,37 @@ func handleImport(args []string) error {
 
 		printing.ClearCurrentLine() // Clear the "Pulling Image ..." line
 		printing.PrintWithColoredForeground(os.Stdout, printing.SUCCESS, "Successfully pulled image '%s'", inspect.RepoTags[0])
+	}
+
+	// TODO: Use data from export to restore the volumes data
+	for _, inspect := range state.Volumes {
+		if _, isAnonymous := inspect.Volume.Labels["com.docker.volume.anonymous"]; isAnonymous {
+			printing.PrintWithColoredForeground(os.Stdout, printing.WARNING, "Volume '%s' is anonymous, can't recreate", inspect.Volume.Name)
+			continue
+		}
+
+		fmt.Fprintf(os.Stdout, "Creating volume '%s'\n", inspect.Volume.Name)
+
+		var clusterVolumeSpec *volume.ClusterVolumeSpec
+		if inspect.Volume.ClusterVolume != nil {
+			clusterVolumeSpec = &inspect.Volume.ClusterVolume.Spec
+		}
+
+		err := docker.VolumeCreate(client.VolumeCreateOptions{
+			Name:              inspect.Volume.Name,
+			Driver:            inspect.Volume.Driver,
+			DriverOpts:        inspect.Volume.Options,
+			Labels:            inspect.Volume.Labels,
+			ClusterVolumeSpec: clusterVolumeSpec,
+		})
+
+		if err != nil {
+			return err
+		}
+
+		printing.MoveCursorUpNLines(1)
+		printing.ClearCurrentLine() // Clear "Creating volume ..." line
+		printing.PrintWithColoredForeground(os.Stdout, printing.SUCCESS, "Successfully created volume '%s'", inspect.Volume.Name)
 	}
 
 	for _, inspect := range state.Containers {

@@ -30,3 +30,13 @@ func VolumeInspect(volumeID string) (client.VolumeInspectResult, error) {
 
 	return inspect, nil
 }
+
+func VolumeCreate(opts client.VolumeCreateOptions) error {
+	_, err := dockerClient.VolumeCreate(ctx, opts)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
