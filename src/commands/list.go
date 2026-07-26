@@ -53,10 +53,9 @@ func handleList(args []string) error {
 		}
 	}
 
-	volumes, err := apiClient.VolumeList(ctx, client.VolumeListOptions{})
+	volumes, err := docker.VolumeList(nil)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error occured while listing docker volumes: %s\n", err)
-		os.Exit(1)
+		return err
 	}
 
 	fmt.Println()
@@ -64,10 +63,10 @@ func handleList(args []string) error {
 		fmt.Println("Volumes:")
 	}
 
-	if len(volumes.Items) <= 0 {
+	if len(volumes) <= 0 {
 		fmt.Println("    No volumes found")
 	} else {
-		for _, volume := range volumes.Items {
+		for _, volume := range volumes {
 			fmt.Fprintf(os.Stdout, "    %s\n", volume.Name)
 		}
 	}

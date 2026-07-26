@@ -53,18 +53,17 @@ func handleExport(args []string) error {
 	}
 
 	// TODO: Create dummy container to dump the volume content
-	volumes, err := apiClient.VolumeList(ctx, client.VolumeListOptions{})
+	volumes, err := docker.VolumeList(nil)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error occured while listing docker volumes: %s\n", err)
-		os.Exit(1)
+		return err
 	}
 
-	for _, volume := range volumes.Items {
-		inspect, err := apiClient.VolumeInspect(ctx, volume.Name, client.VolumeInspectOptions{})
+	for _, volume := range volumes {
+		inspect, err := docker.VolumeInspect(volume.Name)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error occured while inspecting volume: %s\n", err)
-			os.Exit(1)
+			return err
 		}
+		
 		state.Volumes = append(state.Volumes, inspect)
 	}
 
