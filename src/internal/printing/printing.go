@@ -8,7 +8,7 @@ import (
 
 const INFO int = 255
 const WARNING int = 214
-const ERROR int = 31
+const ERROR int = 196
 const SUCCESS int = 40
 const GRAY int = 245
 
