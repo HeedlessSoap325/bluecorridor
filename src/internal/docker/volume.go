@@ -2,10 +2,16 @@ package docker
 
 import (
 	"fmt"
+	"io"
+	"os"
 
+	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/mount"
 	"github.com/moby/moby/api/types/volume"
 	"github.com/moby/moby/client"
 )
+
+const VolumeSaveAndRestoreMountPath = "/mount"
 
 // List all Volumes
 func VolumeList(filters client.Filters) ([]volume.Volume, error) {
@@ -36,6 +42,64 @@ func VolumeCreate(opts client.VolumeCreateOptions) error {
 
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+// Save the contents of a volume into a tar archive
+//
+// This function will create a file called {outDir}/{volume.Name}.tar
+//
+// The root of the archive is {VolumeSaveAndRestoreMountPath}
+func VolumeSave(volume volume.Volume, outDir string) error {
+	err := ImagePull("alpine", false)
+	if err != nil {
+		return err
+	}
+
+	id, err := ContainerCreate(client.ContainerCreateOptions{
+		Config: &container.Config{
+			Image: "alpine",
+		},
+		HostConfig: &container.HostConfig{
+			Mounts: []mount.Mount{
+				{
+					Type:     mount.TypeVolume,
+					Source:   volume.Name,
+					Target:   VolumeSaveAndRestoreMountPath,
+					ReadOnly: true,
+				},
+			},
+		},
+		NetworkingConfig: nil,
+		Platform:         nil,
+		Name:             "",
+	})
+
+	if err != nil {
+		return err
+	}
+
+	reader, err := dockerClient.CopyFromContainer(ctx, id, client.CopyFromContainerOptions{
+		SourcePath: VolumeSaveAndRestoreMountPath,
+	})
+
+	if err != nil {
+		return fmt.Errorf("Error occured while copying files from container '%s' to host: %s", id, err)
+	}
+	defer reader.Content.Close()
+
+	out, err := os.Create(fmt.Sprintf("%s/%s.tar", outDir, volume.Name))
+
+	if err != nil {
+		return fmt.Errorf("Error occured while creating File '%s.tar' to %s: %s", volume.Name, outDir, err)
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, reader.Content)
+	if err != nil {
+		return fmt.Errorf("Error occured while copying tar archive: %s", err)
 	}
 
 	return nil
