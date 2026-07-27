@@ -92,6 +92,38 @@ func handleImport(args []string) error {
 		printing.PrintWithColoredForeground(os.Stdout, printing.SUCCESS, "Successfully created volume '%s'", inspect.Volume.Name)
 	}
 
+	for _, inspect := range state.Networks {
+		if inspect.Network.Name == "host" || inspect.Network.Name == "bridge" || inspect.Network.Name == "none" {
+			printing.PrintWithColoredForeground(os.Stdout, printing.WARNING, "Network '%s' is a built-in network. Can't use that name. Skiping", inspect.Network.Name)
+			continue
+		}
+
+		fmt.Fprintf(os.Stdout, "Creating network '%s'\n", inspect.Network.Name)
+
+		id, err := docker.NetworkCreate(inspect.Network.Name, client.NetworkCreateOptions{
+			Driver:     inspect.Network.Driver,
+			Scope:      inspect.Network.Scope,
+			EnableIPv4: &inspect.Network.EnableIPv4,
+			EnableIPv6: &inspect.Network.EnableIPv6,
+			IPAM:       &inspect.Network.IPAM,
+			Internal:   inspect.Network.Internal,
+			Attachable: inspect.Network.Attachable,
+			Ingress:    inspect.Network.Ingress,
+			ConfigOnly: inspect.Network.ConfigOnly,
+			ConfigFrom: inspect.Network.ConfigFrom.Network,
+			Options:    inspect.Network.Options,
+			Labels:     inspect.Network.Labels,
+		})
+
+		if err != nil {
+			return err
+		}
+
+		printing.MoveCursorUpNLines(1)
+		printing.ClearCurrentLine() // Clear "Creating network ..." line
+		printing.PrintWithColoredForeground(os.Stdout, printing.SUCCESS, "Successfully created network '%s': %s", inspect.Network.Name, id)
+	}
+
 	for _, inspect := range state.Containers {
 		id, err := docker.ContainerCreate(client.ContainerCreateOptions{
 			Config:     inspect.Container.Config,

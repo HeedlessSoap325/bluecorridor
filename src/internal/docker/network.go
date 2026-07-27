@@ -32,3 +32,15 @@ func NetworkInspect(networkID string) (client.NetworkInspectResult, error) {
 
 	return inspect, nil
 }
+
+func NetworkCreate(networkName string, opts client.NetworkCreateOptions) (string, error) {
+	res, err := dockerClient.NetworkCreate(ctx, networkName, opts)
+
+	if err != nil {
+		return "", fmt.Errorf("Error occured while creating docker network: %s", err)
+	}
+
+	// TODO: print warnings from res.Warning
+
+	return res.ID, nil
+}
