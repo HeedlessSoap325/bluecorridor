@@ -80,6 +80,7 @@ func VolumeSave(volume volume.Volume, outDir string) error {
 	if err != nil {
 		return err
 	}
+	defer ContainerRemove(id)
 
 	reader, err := dockerClient.CopyFromContainer(ctx, id, client.CopyFromContainerOptions{
 		SourcePath: VolumeSaveAndRestoreMountPath,

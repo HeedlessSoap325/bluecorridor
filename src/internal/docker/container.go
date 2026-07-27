@@ -53,6 +53,20 @@ func ContainerCreate(opts client.ContainerCreateOptions) (string, error) {
 	return res.ID, nil
 }
 
+func ContainerRemove(containerID string) error {
+	_, err := dockerClient.ContainerRemove(ctx, containerID, client.ContainerRemoveOptions{
+		RemoveVolumes: false,
+		RemoveLinks:   false,
+		Force:         true,
+	})
+
+	if err != nil {
+		return fmt.Errorf("Error occured while removing docker container: %s", err)
+	}
+
+	return nil
+}
+
 func printContainerCreationWarnings(name string, warnings []string) {
 	printing.PrintWithColoredForeground(os.Stdout, printing.WARNING, "[WARNING] Warnings occured while creating container '%s'", name)
 	for _, warning := range warnings {
