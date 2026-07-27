@@ -8,7 +8,6 @@ import (
 
 	"github.com/heedlesssoap325/bluecorridor/internal/docker"
 	"github.com/heedlesssoap325/bluecorridor/internal/printing"
-	"github.com/moby/moby/api/types/network"
 	"github.com/moby/moby/api/types/volume"
 	"github.com/moby/moby/client"
 )
@@ -126,13 +125,11 @@ func handleImport(args []string) error {
 
 	for _, inspect := range state.Containers {
 		id, err := docker.ContainerCreate(client.ContainerCreateOptions{
-			Config:     inspect.Container.Config,
-			HostConfig: inspect.Container.HostConfig,
-			NetworkingConfig: &network.NetworkingConfig{
-				EndpointsConfig: inspect.Container.NetworkSettings.Networks,
-			},
-			Platform: nil,
-			Name:     inspect.Container.Name,
+			Config:           inspect.Container.Config,
+			HostConfig:       inspect.Container.HostConfig,
+			NetworkingConfig: nil, // Connect to networks later
+			Platform:         nil,
+			Name:             inspect.Container.Name,
 		})
 
 		if err != nil {
@@ -140,6 +137,19 @@ func handleImport(args []string) error {
 		}
 
 		printing.PrintWithColoredForeground(os.Stdout, printing.SUCCESS, "Successfully created container '%s': %s", inspect.Container.Name, id)
+
+		// If the client or daemon version were below 1.44, passing multiple networks for container creation would result in a error or wrong configuration of the container
+		// This approach of itterating all networks the container was connected to and re-connecting them works with all versions, and is herefor more compatible, even tough prbably never actually necessary
+		for network, endpointSettings := range inspect.Container.NetworkSettings.Networks {
+			err := docker.NetworkConnect(network, client.NetworkConnectOptions{
+				Container:      id,
+				EndpointConfig: endpointSettings,
+			})
+
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	return nil

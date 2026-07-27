@@ -45,6 +45,16 @@ func NetworkCreate(networkName string, opts client.NetworkCreateOptions) (string
 	return res.ID, nil
 }
 
+func NetworkConnect(networkID string, opts client.NetworkConnectOptions) error {
+	_, err := dockerClient.NetworkConnect(ctx, networkID, opts)
+
+	if err != nil {
+		return fmt.Errorf("Error occured while connecting container '%s' to network '%s': %s", opts.Container, networkID, err)
+	}
+
+	return nil
+}
+
 func NetworkNameReserved(networkName string) bool {
 	return networkName == "bridge" || networkName == "host" || networkName == "none"
 }
