@@ -40,3 +40,8 @@ func VolumeCreate(opts client.VolumeCreateOptions) error {
 
 	return nil
 }
+
+func VolumeAnonymous(VolumeLabels map[string]string) bool {
+	_, isAnonymous := VolumeLabels["com.docker.volume.anonymous"]
+	return isAnonymous
+}

@@ -63,7 +63,7 @@ func handleImport(args []string) error {
 
 	// TODO: Use data from export to restore the volumes data
 	for _, inspect := range state.Volumes {
-		if _, isAnonymous := inspect.Volume.Labels["com.docker.volume.anonymous"]; isAnonymous {
+		if docker.VolumeAnonymous(inspect.Volume.Labels) {
 			printing.PrintWithColoredForeground(os.Stdout, printing.WARNING, "Volume '%s' is anonymous, can't recreate", inspect.Volume.Name)
 			continue
 		}
@@ -93,7 +93,7 @@ func handleImport(args []string) error {
 	}
 
 	for _, inspect := range state.Networks {
-		if inspect.Network.Name == "host" || inspect.Network.Name == "bridge" || inspect.Network.Name == "none" {
+		if docker.NetworkNameReserved(inspect.Network.Name) {
 			printing.PrintWithColoredForeground(os.Stdout, printing.WARNING, "Network '%s' is a built-in network. Can't use that name. Skiping", inspect.Network.Name)
 			continue
 		}

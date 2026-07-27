@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/heedlesssoap325/bluecorridor/internal/docker"
+	"github.com/heedlesssoap325/bluecorridor/internal/printing"
 )
 
 func handleExport(args []string) error {
@@ -49,6 +50,11 @@ func handleExport(args []string) error {
 	}
 
 	for _, volume := range volumes {
+		if docker.VolumeAnonymous(volume.Labels) {
+			printing.PrintWithColoredForeground(os.Stdout, printing.WARNING, "Volume '%s' is anonymous and won't be exported", volume.Name)
+			continue // Don't export anonymous volumes
+		}
+
 		inspect, err := docker.VolumeInspect(volume.Name)
 		if err != nil {
 			return err
@@ -63,6 +69,11 @@ func handleExport(args []string) error {
 	}
 
 	for _, network := range networks {
+		if docker.NetworkNameReserved(network.Name) {
+			// Don't print a warning here because these networks will always be present, just dont add them to the export
+			continue // Don't export networks "bridge", "host", and "none" as the will always exist on the other device, because they are built-in
+		}
+
 		inspect, err := docker.NetworkInspect(network.ID)
 		if err != nil {
 			return err

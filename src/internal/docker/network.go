@@ -44,3 +44,7 @@ func NetworkCreate(networkName string, opts client.NetworkCreateOptions) (string
 
 	return res.ID, nil
 }
+
+func NetworkNameReserved(networkName string) bool {
+	return networkName == "bridge" || networkName == "host" || networkName == "none"
+}
