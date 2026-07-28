@@ -1,6 +1,7 @@
 package docker
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -106,8 +107,54 @@ func VolumeSave(volumeName string, saveName string, outDir string) error {
 	return nil
 }
 
-func VolumeRestore() {
+func VolumeRestore(volumeName string, saveName string, inDir string) error {
+	err := ImagePull("alpine", false)
+	if err != nil {
+		return err
+	}
 
+	id, err := ContainerCreate(client.ContainerCreateOptions{
+		Config: &container.Config{
+			Image: "alpine",
+		},
+		HostConfig: &container.HostConfig{
+			Mounts: []mount.Mount{
+				{
+					Type:     mount.TypeVolume,
+					Source:   volumeName,
+					Target:   VolumeSaveAndRestoreMountPath,
+					ReadOnly: false,
+				},
+			},
+		},
+		NetworkingConfig: nil,
+		Platform:         nil,
+		Name:             "",
+	})
+
+	if err != nil {
+		return err
+	}
+	defer ContainerRemove(id)
+
+	buffer, err := os.ReadFile(fmt.Sprintf("%s/%s.tar", inDir, saveName))
+	if err != nil {
+		return fmt.Errorf("Error occured while reading file %s/%s.tar: %s", inDir, saveName, err)
+	}
+
+	content := bytes.NewReader(buffer)
+
+	_, err = dockerClient.CopyToContainer(ctx, id, client.CopyToContainerOptions{
+		DestinationPath:           "/", // The TAR archive is expected to contain a root filder named {VolumeSaveAndRestoreMountPath}, therefore, the extraction must take place in root
+		Content:                   content,
+		AllowOverwriteDirWithFile: false,
+		CopyUIDGID:                true,
+	})
+
+	if err != nil {
+		return fmt.Errorf("Error occured while copying tar archive to container '%s': %s", id, err)
+	}
+	return nil
 }
 
 func VolumeAnonymous(VolumeLabels map[string]string) bool {
