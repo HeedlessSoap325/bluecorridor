@@ -6,13 +6,14 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/heedlesssoap325/bluecorridor/internal/compression"
 	"github.com/heedlesssoap325/bluecorridor/internal/docker"
 	"github.com/heedlesssoap325/bluecorridor/internal/printing"
 )
 
 func handleExport(args []string) error {
 	fs := flag.NewFlagSet("export", flag.ExitOnError)
-	output := fs.String("output", "docker-export.json", "The path in which to place the export file")
+	output := fs.String("output", "docker-export", "The path in which to place the export file (noe extension required)")
 	help := fs.Bool("help", false, "Print this message")
 
 	fs.Usage = func() {
@@ -25,6 +26,16 @@ func handleExport(args []string) error {
 
 	if *help {
 		fs.Usage()
+	}
+
+	err := os.MkdirAll(*output, 0755)
+	if err != nil {
+		return fmt.Errorf("Could not create output directory %s: %s", *output, err)
+	}
+
+	err = os.MkdirAll(fmt.Sprintf("%s/volumes", *output), 0755)
+	if err != nil {
+		return fmt.Errorf("Could not create volumes directory in output directory %s: %s", *output, err)
 	}
 
 	var state dockerState
@@ -62,7 +73,7 @@ func handleExport(args []string) error {
 
 		state.Volumes = append(state.Volumes, inspect)
 
-		err = docker.VolumeSave(volume.Name, volume.Name, ".")
+		err = docker.VolumeSave(volume.Name, volume.Name, fmt.Sprintf("%s/volumes", *output))
 		if err != nil {
 			return err
 		}
@@ -106,7 +117,22 @@ func handleExport(args []string) error {
 		return fmt.Errorf("Error occured while creating JSON: %s", err)
 	}
 
-	os.WriteFile(*output, data, 0644)
+	metadataFile := fmt.Sprintf("%s/metadata.json", *output)
+	err = os.WriteFile(metadataFile, data, 0644)
+	if err != nil {
+		return fmt.Errorf("Error occured while creating file %s: %s", metadataFile, err)
+	}
+
+	outputFile := fmt.Sprintf("%s.tar.gz", *output)
+	err = compression.Tar(*output, outputFile)
+	if err != nil {
+		return fmt.Errorf("Error occured while creating final tar archive %s: %s", outputFile, err)
+	}
+
+	err = os.RemoveAll(*output)
+	if err != nil {
+		return fmt.Errorf("Error occured while cleaning up temporary workinDir %s: %s", *output, err)
+	}
 
 	return nil
 }
