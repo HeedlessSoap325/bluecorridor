@@ -61,6 +61,11 @@ func handleExport(args []string) error {
 		}
 
 		state.Volumes = append(state.Volumes, inspect)
+
+		err = docker.VolumeSave(volume.Name, volume.Name, ".")
+		if err != nil {
+			return err
+		}
 	}
 
 	networks, err := docker.NetworkList(nil)

@@ -89,6 +89,11 @@ func handleImport(args []string) error {
 		printing.MoveCursorUpNLines(1)
 		printing.ClearCurrentLine() // Clear "Creating volume ..." line
 		printing.PrintWithColoredForeground(os.Stdout, printing.SUCCESS, "Successfully created volume '%s'", inspect.Volume.Name)
+
+		err = docker.VolumeRestore(inspect.Volume.Name, inspect.Volume.Name, ".")
+		if err != nil {
+			return err
+		}
 	}
 
 	for _, inspect := range state.Networks {
