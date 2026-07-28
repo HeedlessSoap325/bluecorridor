@@ -12,6 +12,7 @@ import (
 )
 
 func handleExport(args []string) error {
+	/// HANDLE FLAGS
 	fs := flag.NewFlagSet("export", flag.ExitOnError)
 	output := fs.String("output", "docker-export", "The path in which to place the export file (noe extension required)")
 	help := fs.Bool("help", false, "Print this message")
@@ -28,17 +29,56 @@ func handleExport(args []string) error {
 		fs.Usage()
 	}
 
+	/// CREATE TEMPORARY DIRECTORY
 	err := os.MkdirAll(*output, 0755)
 	if err != nil {
 		return fmt.Errorf("Could not create output directory %s: %s", *output, err)
 	}
 
-	err = os.MkdirAll(fmt.Sprintf("%s/volumes", *output), 0755)
+	/// SAVE VOLUMES
+	volumeDir := fmt.Sprintf("%s/volumes", *output)
+	err = os.MkdirAll(volumeDir, 0755)
 	if err != nil {
 		return fmt.Errorf("Could not create volumes directory in output directory %s: %s", *output, err)
 	}
 
-	var state dockerState
+	saveVolumes(volumeDir)
+
+	/// CREATE METADATA FILE
+	var state dockerState;
+	if err := extractDockerState(&state); err != nil {
+		return err
+	}
+
+	data, err := json.MarshalIndent(state, "", "    ")
+	if err != nil {
+		return fmt.Errorf("Error occured while creating JSON: %s", err)
+	}
+
+	metadataFile := fmt.Sprintf("%s/metadata.json", *output)
+	err = os.WriteFile(metadataFile, data, 0644)
+	if err != nil {
+		return fmt.Errorf("Error occured while creating file %s: %s", metadataFile, err)
+	}
+
+	/// ASSEMBLE FINAL OUTPUT FILE
+	outputFile := fmt.Sprintf("%s.tar.gz", *output)
+	err = compression.Tar(*output, outputFile)
+	if err != nil {
+		return fmt.Errorf("Error occured while creating final tar archive %s: %s", outputFile, err)
+	}
+
+
+	/// CLEANUP
+	err = os.RemoveAll(*output)
+	if err != nil {
+		return fmt.Errorf("Error occured while cleaning up temporary workinDir %s: %s", *output, err)
+	}
+
+	return nil
+}
+
+func extractDockerState(state *dockerState) error {
 
 	images, err := docker.ImageList(nil)
 	if err != nil {
@@ -54,7 +94,6 @@ func handleExport(args []string) error {
 		state.Images = append(state.Images, inspect)
 	}
 
-	// TODO: Create dummy container to dump the volume content
 	volumes, err := docker.VolumeList(nil)
 	if err != nil {
 		return err
@@ -72,11 +111,6 @@ func handleExport(args []string) error {
 		}
 
 		state.Volumes = append(state.Volumes, inspect)
-
-		err = docker.VolumeSave(volume.Name, volume.Name, fmt.Sprintf("%s/volumes", *output))
-		if err != nil {
-			return err
-		}
 	}
 
 	networks, err := docker.NetworkList(nil)
@@ -112,27 +146,25 @@ func handleExport(args []string) error {
 		state.Containers = append(state.Containers, inspect)
 	}
 
-	data, err := json.MarshalIndent(state, "", "    ")
+	return nil
+}
+
+func saveVolumes(outputDir string) error {
+	volumes, err := docker.VolumeList(nil)
 	if err != nil {
-		return fmt.Errorf("Error occured while creating JSON: %s", err)
+		return err
 	}
 
-	metadataFile := fmt.Sprintf("%s/metadata.json", *output)
-	err = os.WriteFile(metadataFile, data, 0644)
-	if err != nil {
-		return fmt.Errorf("Error occured while creating file %s: %s", metadataFile, err)
-	}
+	for _, volume := range volumes {
+		if docker.VolumeAnonymous(volume.Labels) {
+			continue // Don't export anonymous volumes
+		}
 
-	outputFile := fmt.Sprintf("%s.tar.gz", *output)
-	err = compression.Tar(*output, outputFile)
-	if err != nil {
-		return fmt.Errorf("Error occured while creating final tar archive %s: %s", outputFile, err)
+		err = docker.VolumeSave(volume.Name, volume.Name, outputDir)
+		if err != nil {
+			return err
+		}
 	}
-
-	err = os.RemoveAll(*output)
-	if err != nil {
-		return fmt.Errorf("Error occured while cleaning up temporary workinDir %s: %s", *output, err)
-	}
-
+	
 	return nil
 }
