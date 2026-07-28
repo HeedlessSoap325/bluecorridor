@@ -49,10 +49,10 @@ func VolumeCreate(opts client.VolumeCreateOptions) error {
 
 // Save the contents of a volume into a tar archive
 //
-// This function will create a file called {outDir}/{volume.Name}.tar
+// This function will create a file called {outDir}/{saveName}.tar and store the contents of the {volumeName} volume in it
 //
 // The root of the archive is {VolumeSaveAndRestoreMountPath}
-func VolumeSave(volume volume.Volume, outDir string) error {
+func VolumeSave(volumeName string, saveName string, outDir string) error {
 	err := ImagePull("alpine", false)
 	if err != nil {
 		return err
@@ -66,7 +66,7 @@ func VolumeSave(volume volume.Volume, outDir string) error {
 			Mounts: []mount.Mount{
 				{
 					Type:     mount.TypeVolume,
-					Source:   volume.Name,
+					Source:   volumeName,
 					Target:   VolumeSaveAndRestoreMountPath,
 					ReadOnly: true,
 				},
@@ -91,10 +91,10 @@ func VolumeSave(volume volume.Volume, outDir string) error {
 	}
 	defer reader.Content.Close()
 
-	out, err := os.Create(fmt.Sprintf("%s/%s.tar", outDir, volume.Name))
+	out, err := os.Create(fmt.Sprintf("%s/%s.tar", outDir, saveName))
 
 	if err != nil {
-		return fmt.Errorf("Error occured while creating File '%s.tar' to %s: %s", volume.Name, outDir, err)
+		return fmt.Errorf("Error occured while creating File '%s.tar' to %s: %s", saveName, outDir, err)
 	}
 	defer out.Close()
 
@@ -104,6 +104,10 @@ func VolumeSave(volume volume.Volume, outDir string) error {
 	}
 
 	return nil
+}
+
+func VolumeRestore() {
+
 }
 
 func VolumeAnonymous(VolumeLabels map[string]string) bool {
