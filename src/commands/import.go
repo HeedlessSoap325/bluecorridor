@@ -17,7 +17,7 @@ import (
 func handleImport(args []string) error {
 	/// HANDLE FLAGS
 	fs := flag.NewFlagSet("import", flag.ExitOnError)
-	file := fs.String("file", "docker-export.json", "The file from which to import docker")
+	file := fs.String("file", "docker-export.tar.gz", "The file from which to import docker")
 	help := fs.Bool("help", false, "Print this message")
 
 	fs.Usage = func() {
