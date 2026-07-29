@@ -15,6 +15,7 @@ import (
 )
 
 func handleImport(args []string) error {
+	/// HANDLE FLAGS
 	fs := flag.NewFlagSet("import", flag.ExitOnError)
 	file := fs.String("file", "docker-export.json", "The file from which to import docker")
 	help := fs.Bool("help", false, "Print this message")
@@ -31,15 +32,18 @@ func handleImport(args []string) error {
 		fs.Usage()
 	}
 
-	inputDir := filepath.Base(*file)
+	/// CREATE TEMPORARY DIRECTORY
+	inputDir := filepath.Base(*file) // TODO: Maybe use os.TempDir() here, instead of hoping that the folder is empty
 
 	err := os.MkdirAll(inputDir, 0755)
 	if err != nil {
 		return fmt.Errorf("Could not create input directory %s: %s", inputDir, err)
 	}
 
+	/// EXTRACT TAR ARCHIVE INTO TEMPORARY DIRECTORY
 	compression.Untar(*file, inputDir)
 
+	/// RESTORE DOCKER STATE FROM METADATA FILE
 	metadataFile := fmt.Sprintf("%s/metadata.json", inputDir)
 	raw, err := os.ReadFile(metadataFile)
 	if err != nil {
@@ -57,8 +61,10 @@ func handleImport(args []string) error {
 		return err
 	}
 
+	/// RESTORE VOLUME CONTENTS
 	restoreVolumes(state.Volumes, volumeDir)
 
+	/// CLEANUP
 	err = os.RemoveAll(inputDir)
 	if err != nil {
 		return fmt.Errorf("Error occured while cleaning up temporary workinDir %s: %s", inputDir, err)
