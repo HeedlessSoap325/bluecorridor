@@ -5,7 +5,9 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 
+	"github.com/heedlesssoap325/bluecorridor/internal/compression"
 	"github.com/heedlesssoap325/bluecorridor/internal/docker"
 	"github.com/heedlesssoap325/bluecorridor/internal/printing"
 	"github.com/moby/moby/api/types/volume"
@@ -29,17 +31,43 @@ func handleImport(args []string) error {
 		fs.Usage()
 	}
 
-	raw, err := os.ReadFile(*file)
+	inputDir := filepath.Base(*file)
+
+	err := os.MkdirAll(inputDir, 0755)
 	if err != nil {
-		return fmt.Errorf("Error occured while reading File %s: %s", *file, err)
+		return fmt.Errorf("Could not create input directory %s: %s", inputDir, err)
 	}
 
-	var state dockerState
+	compression.Untar(*file, inputDir)
 
+	metadataFile := fmt.Sprintf("%s/metadata.json", inputDir)
+	raw, err := os.ReadFile(metadataFile)
+	if err != nil {
+		return fmt.Errorf("Error occured while reading metadata file %s: %s", metadataFile, err)
+	}
+
+	volumeDir := fmt.Sprintf("%s/volumes", inputDir)
+
+	var state dockerState
 	if json.Unmarshal(raw, &state) != nil {
 		return fmt.Errorf("Error occured while parsing JSON: %s", err)
 	}
 
+	if err := importDockerState(state); err != nil {
+		return err
+	}
+
+	restoreVolumes(state.Volumes, volumeDir)
+
+	err = os.RemoveAll(inputDir)
+	if err != nil {
+		return fmt.Errorf("Error occured while cleaning up temporary workinDir %s: %s", inputDir, err)
+	}
+
+	return nil
+}
+
+func importDockerState(state dockerState) error {
 	for _, inspect := range state.Images {
 		if len(inspect.RepoTags) <= 0 {
 			fmt.Fprintln(os.Stderr, "UNIMPLEMENTED: Image had no RepoTags")
@@ -60,7 +88,6 @@ func handleImport(args []string) error {
 		printing.PrintWithColoredForeground(os.Stdout, printing.SUCCESS, "Successfully pulled image '%s'", inspect.RepoTags[0])
 	}
 
-	// TODO: Use data from export to restore the volumes data
 	for _, inspect := range state.Volumes {
 		if docker.VolumeAnonymous(inspect.Volume.Labels) {
 			printing.PrintWithColoredForeground(os.Stdout, printing.WARNING, "Volume '%s' is anonymous, can't recreate", inspect.Volume.Name)
@@ -89,11 +116,6 @@ func handleImport(args []string) error {
 		printing.MoveCursorUpNLines(1)
 		printing.ClearCurrentLine() // Clear "Creating volume ..." line
 		printing.PrintWithColoredForeground(os.Stdout, printing.SUCCESS, "Successfully created volume '%s'", inspect.Volume.Name)
-
-		err = docker.VolumeRestore(inspect.Volume.Name, inspect.Volume.Name, ".")
-		if err != nil {
-			return err
-		}
 	}
 
 	for _, inspect := range state.Networks {
@@ -154,6 +176,18 @@ func handleImport(args []string) error {
 			if err != nil {
 				return err
 			}
+		}
+	}
+
+	return nil
+}
+
+func restoreVolumes(volumeInspects []client.VolumeInspectResult, inDir string) error {
+	for _, volume := range volumeInspects {
+		err := docker.VolumeRestore(volume.Volume.Name, volume.Volume.Name, inDir)
+
+		if err != nil {
+			return err
 		}
 	}
 
