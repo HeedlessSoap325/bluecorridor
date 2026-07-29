@@ -79,6 +79,7 @@ func handleExport(args []string) error {
 }
 
 func extractDockerState(state *dockerState) error {
+	state.Version = exportVersion
 
 	images, err := docker.ImageList(nil)
 	if err != nil {

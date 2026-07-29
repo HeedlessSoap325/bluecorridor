@@ -58,6 +58,10 @@ func handleImport(args []string) error {
 		return fmt.Errorf("Error occured while parsing JSON: %s", err)
 	}
 
+	if state.Version != exportVersion {
+		return fmt.Errorf("Incompatible metadata versions. Export: %s, this programm: %s\nThe file provided is either to new or to old for this programm", state.Version, exportVersion)
+	}
+
 	if err := importDockerState(state); err != nil {
 		return err
 	}
