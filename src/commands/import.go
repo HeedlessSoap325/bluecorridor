@@ -45,13 +45,13 @@ func handleImport(args []string) error {
 	compression.Untar(*file, inputDir)
 
 	/// RESTORE DOCKER STATE FROM METADATA FILE
-	metadataFile := fmt.Sprintf("%s/metadata.json", inputDir)
+	metadataFile := fmt.Sprintf("%s/%s", inputDir, metadataFileName)
 	raw, err := os.ReadFile(metadataFile)
 	if err != nil {
 		return fmt.Errorf("Error occured while reading metadata file %s: %s", metadataFile, err)
 	}
 
-	volumeDir := fmt.Sprintf("%s/volumes", inputDir)
+	volumeDir := fmt.Sprintf("%s/%s", inputDir, volumeDirName)
 
 	var state dockerState
 	if json.Unmarshal(raw, &state) != nil {

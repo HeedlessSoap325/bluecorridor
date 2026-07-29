@@ -36,7 +36,7 @@ func handleExport(args []string) error {
 	}
 
 	/// SAVE VOLUMES
-	volumeDir := fmt.Sprintf("%s/volumes", *output)
+	volumeDir := fmt.Sprintf("%s/%s", *output, volumeDirName)
 	err = os.MkdirAll(volumeDir, 0755)
 	if err != nil {
 		return fmt.Errorf("Could not create volumes directory in output directory %s: %s", *output, err)
@@ -55,7 +55,7 @@ func handleExport(args []string) error {
 		return fmt.Errorf("Error occured while creating JSON: %s", err)
 	}
 
-	metadataFile := fmt.Sprintf("%s/metadata.json", *output)
+	metadataFile := fmt.Sprintf("%s/%s", *output, metadataFileName)
 	err = os.WriteFile(metadataFile, data, 0644)
 	if err != nil {
 		return fmt.Errorf("Error occured while creating file %s: %s", metadataFile, err)
