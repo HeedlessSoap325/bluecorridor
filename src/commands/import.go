@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/heedlesssoap325/bluecorridor/internal/compression"
 	"github.com/heedlesssoap325/bluecorridor/internal/docker"
@@ -157,19 +158,21 @@ func importDockerState(state dockerState) error {
 	}
 
 	for _, inspect := range state.Containers {
+		containerName, _ := strings.CutPrefix(inspect.Container.Name, "/")
+
 		id, err := docker.ContainerCreate(client.ContainerCreateOptions{
 			Config:           inspect.Container.Config,
 			HostConfig:       inspect.Container.HostConfig,
 			NetworkingConfig: nil, // Connect to networks later
 			Platform:         nil,
-			Name:             inspect.Container.Name,
+			Name:             containerName,
 		})
 
 		if err != nil {
 			return err
 		}
 
-		printing.PrintWithColoredForeground(os.Stdout, printing.SUCCESS, "Successfully created container '%s': %s", inspect.Container.Name, id)
+		printing.PrintWithColoredForeground(os.Stdout, printing.SUCCESS, "Successfully created container '%s': %s", containerName, id)
 
 		// If the client or daemon version were below 1.44, passing multiple networks for container creation would result in a error or wrong configuration of the container
 		// This approach of itterating all networks the container was connected to and re-connecting them works with all versions, and is herefor more compatible, even tough prbably never actually necessary
