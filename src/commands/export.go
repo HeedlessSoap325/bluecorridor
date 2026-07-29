@@ -35,6 +35,8 @@ func handleExport(args []string) error {
 		return fmt.Errorf("Could not create output directory %s: %s", *output, err)
 	}
 
+	defer os.RemoveAll(*output) // CLEANUP
+
 	/// SAVE VOLUMES
 	volumeDir := fmt.Sprintf("%s/%s", *output, volumeDirName)
 	err = os.MkdirAll(volumeDir, 0755)
@@ -66,13 +68,6 @@ func handleExport(args []string) error {
 	err = compression.Tar(*output, outputFile)
 	if err != nil {
 		return fmt.Errorf("Error occured while creating final tar archive %s: %s", outputFile, err)
-	}
-
-
-	/// CLEANUP
-	err = os.RemoveAll(*output)
-	if err != nil {
-		return fmt.Errorf("Error occured while cleaning up temporary workinDir %s: %s", *output, err)
 	}
 
 	return nil

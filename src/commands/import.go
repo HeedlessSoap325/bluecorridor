@@ -41,6 +41,8 @@ func handleImport(args []string) error {
 		return fmt.Errorf("Could not create input directory %s: %s", inputDir, err)
 	}
 
+	defer os.RemoveAll(inputDir) // CLEANUP
+
 	/// EXTRACT TAR ARCHIVE INTO TEMPORARY DIRECTORY
 	compression.Untar(*file, inputDir)
 
@@ -68,12 +70,6 @@ func handleImport(args []string) error {
 
 	/// RESTORE VOLUME CONTENTS
 	restoreVolumes(state.Volumes, volumeDir)
-
-	/// CLEANUP
-	err = os.RemoveAll(inputDir)
-	if err != nil {
-		return fmt.Errorf("Error occured while cleaning up temporary workinDir %s: %s", inputDir, err)
-	}
 
 	return nil
 }
