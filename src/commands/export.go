@@ -30,7 +30,7 @@ func handleExport(args []string) error {
 	}
 
 	/// CREATE TEMPORARY DIRECTORY
-	err := os.MkdirAll(*output, 0755)
+	err := os.MkdirAll(*output, 0755) // TODO: Maybe use os.TempDir() here instead of just ssuming that the output folder is empty
 	if err != nil {
 		return fmt.Errorf("Could not create output directory %s: %s", *output, err)
 	}
@@ -157,6 +157,12 @@ func saveVolumes(outputDir string) error {
 
 	for _, volume := range volumes {
 		if docker.VolumeAnonymous(volume.Labels) {
+			// TODO: give user options:
+			//     A) Keep volume anonymous and keeep data
+			//     B) Keep volume anonymous and drop data
+			//     C) Convert to named volume and keep data
+			//     D) Convert to named volume and drop data
+			//     E) Abort
 			continue // Don't export anonymous volumes
 		}
 
