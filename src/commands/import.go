@@ -190,11 +190,16 @@ func importDockerState(state dockerState) error {
 
 func restoreVolumes(volumeInspects []client.VolumeInspectResult, inDir string) error {
 	for _, volume := range volumeInspects {
+		fmt.Fprintf(os.Stdout, "Restoring contents of volume '%s'\n", volume.Volume.Name)
 		err := docker.VolumeRestore(volume.Volume.Name, volume.Volume.Name, inDir)
 
 		if err != nil {
 			return err
 		}
+
+		printing.MoveCursorUpNLines(1)
+		printing.ClearCurrentLine() // Clear "Restoring contents of volume ..." line
+		printing.PrintWithColoredForeground(os.Stdout, printing.SUCCESS, "Successfully restored contents of volume '%s'", volume.Volume.Name)
 	}
 
 	return nil
