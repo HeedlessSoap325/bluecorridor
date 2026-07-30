@@ -88,6 +88,7 @@ func extractDockerState(state *dockerState) error {
 		}
 
 		state.Images = append(state.Images, inspect)
+		console.PrintWithColoredForeground(os.Stdout, console.SUCCESS, "Successfully saved metadata of image '%s'", image.RepoTags[0])
 	}
 
 	volumes, err := docker.VolumeList(nil)
@@ -107,6 +108,7 @@ func extractDockerState(state *dockerState) error {
 		}
 
 		state.Volumes = append(state.Volumes, inspect)
+		console.PrintWithColoredForeground(os.Stdout, console.SUCCESS, "Successfully saved metadata of volume '%s'", volume.Name)
 	}
 
 	networks, err := docker.NetworkList(nil)
@@ -126,6 +128,7 @@ func extractDockerState(state *dockerState) error {
 		}
 
 		state.Networks = append(state.Networks, inspect)
+		console.PrintWithColoredForeground(os.Stdout, console.SUCCESS, "Successfully saved metadata of network '%s'", network.Name)
 	}
 
 	containers, err := docker.ContainerList(nil)
@@ -140,6 +143,7 @@ func extractDockerState(state *dockerState) error {
 		}
 
 		state.Containers = append(state.Containers, inspect)
+		console.PrintWithColoredForeground(os.Stdout, console.SUCCESS, "Successfully saved metadata of container '%s'", inspect.Container.Name)
 	}
 
 	return nil
@@ -162,10 +166,16 @@ func saveVolumes(outputDir string) error {
 			continue // Don't export anonymous volumes
 		}
 
+		console.PrintWithColoredForeground(os.Stdout, console.INFO, "Saving contents of volume '%s'", volume.Name)
+
 		err = docker.VolumeSave(volume.Name, volume.Name, outputDir)
 		if err != nil {
 			return err
 		}
+
+		console.MoveCursorUpNLines(1)
+		console.ClearCurrentLine()
+		console.PrintWithColoredForeground(os.Stdout, console.SUCCESS, "Successfully saved contents of volume '%s'", volume.Name)
 	}
 
 	return nil
