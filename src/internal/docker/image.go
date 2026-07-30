@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/heedlesssoap325/bluecorridor/internal/printing"
+	"github.com/heedlesssoap325/bluecorridor/internal/console"
 	"github.com/moby/moby/api/types/image"
 	"github.com/moby/moby/client"
 )
@@ -103,19 +103,19 @@ func imagePullPrettyprint(pullResponse client.ImagePullResponse) {
 		}
 
 		if printed > 0 {
-			printing.MoveCursorUpNLines(printed)
+			console.MoveCursorUpNLines(printed)
 		}
 
 		// Print the actual MEssage
 		for _, line := range window {
-			printing.ClearCurrentLine()
-			printing.PrintWithColoredForeground(os.Stdout, printing.GRAY, "    %s", line)
+			console.ClearCurrentLine()
+			console.PrintWithColoredForeground(os.Stdout, console.GRAY, "    %s", line)
 		}
 
 		printed = len(window)
 	}
 
 	if printed > 0 {
-		printing.ClearNLinesAndPositionCursorAtStart(printed)
+		console.ClearNLinesAndPositionCursorAtStart(printed)
 	}
 }

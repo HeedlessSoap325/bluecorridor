@@ -4,12 +4,12 @@ import (
 	"os"
 
 	"github.com/heedlesssoap325/bluecorridor/commands"
-	"github.com/heedlesssoap325/bluecorridor/internal/printing"
+	"github.com/heedlesssoap325/bluecorridor/internal/console"
 )
 
 func main() {
 	if err := commands.HandleCommand(); err != nil {
-		printing.PrintWithColoredForeground(os.Stderr, printing.ERROR, "%s", err)
+		console.PrintWithColoredForeground(os.Stderr, console.ERROR, "%s", err)
 		os.Exit(1)
 	}
 }

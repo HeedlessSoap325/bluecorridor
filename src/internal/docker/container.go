@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/heedlesssoap325/bluecorridor/internal/printing"
+	"github.com/heedlesssoap325/bluecorridor/internal/console"
 	"github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/client"
 )
@@ -68,8 +68,8 @@ func ContainerRemove(containerID string) error {
 }
 
 func printContainerCreationWarnings(name string, warnings []string) {
-	printing.PrintWithColoredForeground(os.Stdout, printing.WARNING, "[WARNING] Warnings occured while creating container '%s'", name)
+	console.PrintWithColoredForeground(os.Stdout, console.WARNING, "[WARNING] Warnings occured while creating container '%s'", name)
 	for _, warning := range warnings {
-		printing.PrintWithColoredForeground(os.Stdout, printing.WARNING, "    %s", warning)
+		console.PrintWithColoredForeground(os.Stdout, console.WARNING, "    %s", warning)
 	}
 }

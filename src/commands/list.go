@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/heedlesssoap325/bluecorridor/internal/console"
 	"github.com/heedlesssoap325/bluecorridor/internal/docker"
 )
 
@@ -24,6 +25,9 @@ func handleList(args []string) error {
 	if *help {
 		fs.Usage()
 	}
+
+	in := console.Prompt("Test: (Y / N): ", []string{"Y", "N"})
+	fmt.Println(in)
 
 	containers, err := docker.ContainerList(nil)
 	if err != nil {

@@ -7,8 +7,8 @@ import (
 	"os"
 
 	"github.com/heedlesssoap325/bluecorridor/internal/compression"
+	"github.com/heedlesssoap325/bluecorridor/internal/console"
 	"github.com/heedlesssoap325/bluecorridor/internal/docker"
-	"github.com/heedlesssoap325/bluecorridor/internal/printing"
 )
 
 func handleExport(args []string) error {
@@ -47,7 +47,7 @@ func handleExport(args []string) error {
 	saveVolumes(volumeDir)
 
 	/// CREATE METADATA FILE
-	var state dockerState;
+	var state dockerState
 	if err := extractDockerState(&state); err != nil {
 		return err
 	}
@@ -97,7 +97,7 @@ func extractDockerState(state *dockerState) error {
 
 	for _, volume := range volumes {
 		if docker.VolumeAnonymous(volume.Labels) {
-			printing.PrintWithColoredForeground(os.Stdout, printing.WARNING, "Volume '%s' is anonymous and won't be exported", volume.Name)
+			console.PrintWithColoredForeground(os.Stdout, console.WARNING, "Volume '%s' is anonymous and won't be exported", volume.Name)
 			continue // Don't export anonymous volumes
 		}
 
@@ -167,6 +167,6 @@ func saveVolumes(outputDir string) error {
 			return err
 		}
 	}
-	
+
 	return nil
 }

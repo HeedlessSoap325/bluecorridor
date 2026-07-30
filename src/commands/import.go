@@ -9,8 +9,8 @@ import (
 	"strings"
 
 	"github.com/heedlesssoap325/bluecorridor/internal/compression"
+	"github.com/heedlesssoap325/bluecorridor/internal/console"
 	"github.com/heedlesssoap325/bluecorridor/internal/docker"
-	"github.com/heedlesssoap325/bluecorridor/internal/printing"
 	"github.com/moby/moby/api/types/volume"
 	"github.com/moby/moby/client"
 )
@@ -90,14 +90,14 @@ func importDockerState(state dockerState) error {
 			return err
 		}
 
-		printing.MoveCursorUpNLines(1)
-		printing.ClearCurrentLine() // Clear the "Pulling Image ..." line
-		printing.PrintWithColoredForeground(os.Stdout, printing.SUCCESS, "Successfully pulled image '%s'", inspect.RepoTags[0])
+		console.MoveCursorUpNLines(1)
+		console.ClearCurrentLine() // Clear the "Pulling Image ..." line
+		console.PrintWithColoredForeground(os.Stdout, console.SUCCESS, "Successfully pulled image '%s'", inspect.RepoTags[0])
 	}
 
 	for _, inspect := range state.Volumes {
 		if docker.VolumeAnonymous(inspect.Volume.Labels) {
-			printing.PrintWithColoredForeground(os.Stdout, printing.WARNING, "Volume '%s' is anonymous, can't recreate", inspect.Volume.Name)
+			console.PrintWithColoredForeground(os.Stdout, console.WARNING, "Volume '%s' is anonymous, can't recreate", inspect.Volume.Name)
 			continue
 		}
 
@@ -120,14 +120,14 @@ func importDockerState(state dockerState) error {
 			return err
 		}
 
-		printing.MoveCursorUpNLines(1)
-		printing.ClearCurrentLine() // Clear "Creating volume ..." line
-		printing.PrintWithColoredForeground(os.Stdout, printing.SUCCESS, "Successfully created volume '%s'", inspect.Volume.Name)
+		console.MoveCursorUpNLines(1)
+		console.ClearCurrentLine() // Clear "Creating volume ..." line
+		console.PrintWithColoredForeground(os.Stdout, console.SUCCESS, "Successfully created volume '%s'", inspect.Volume.Name)
 	}
 
 	for _, inspect := range state.Networks {
 		if docker.NetworkNameReserved(inspect.Network.Name) {
-			printing.PrintWithColoredForeground(os.Stdout, printing.WARNING, "Network '%s' is a built-in network. Can't use that name. Skiping", inspect.Network.Name)
+			console.PrintWithColoredForeground(os.Stdout, console.WARNING, "Network '%s' is a built-in network. Can't use that name. Skiping", inspect.Network.Name)
 			continue
 		}
 
@@ -152,9 +152,9 @@ func importDockerState(state dockerState) error {
 			return err
 		}
 
-		printing.MoveCursorUpNLines(1)
-		printing.ClearCurrentLine() // Clear "Creating network ..." line
-		printing.PrintWithColoredForeground(os.Stdout, printing.SUCCESS, "Successfully created network '%s': %s", inspect.Network.Name, id)
+		console.MoveCursorUpNLines(1)
+		console.ClearCurrentLine() // Clear "Creating network ..." line
+		console.PrintWithColoredForeground(os.Stdout, console.SUCCESS, "Successfully created network '%s': %s", inspect.Network.Name, id)
 	}
 
 	for _, inspect := range state.Containers {
@@ -172,7 +172,7 @@ func importDockerState(state dockerState) error {
 			return err
 		}
 
-		printing.PrintWithColoredForeground(os.Stdout, printing.SUCCESS, "Successfully created container '%s': %s", containerName, id)
+		console.PrintWithColoredForeground(os.Stdout, console.SUCCESS, "Successfully created container '%s': %s", containerName, id)
 
 		// If the client or daemon version were below 1.44, passing multiple networks for container creation would result in a error or wrong configuration of the container
 		// This approach of itterating all networks the container was connected to and re-connecting them works with all versions, and is herefor more compatible, even tough prbably never actually necessary
@@ -200,9 +200,9 @@ func restoreVolumes(volumeInspects []client.VolumeInspectResult, inDir string) e
 			return err
 		}
 
-		printing.MoveCursorUpNLines(1)
-		printing.ClearCurrentLine() // Clear "Restoring contents of volume ..." line
-		printing.PrintWithColoredForeground(os.Stdout, printing.SUCCESS, "Successfully restored contents of volume '%s'", volume.Volume.Name)
+		console.MoveCursorUpNLines(1)
+		console.ClearCurrentLine() // Clear "Restoring contents of volume ..." line
+		console.PrintWithColoredForeground(os.Stdout, console.SUCCESS, "Successfully restored contents of volume '%s'", volume.Volume.Name)
 	}
 
 	return nil

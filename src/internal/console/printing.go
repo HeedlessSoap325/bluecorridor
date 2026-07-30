@@ -1,4 +1,4 @@
-package printing
+package console
 
 import (
 	"fmt"
