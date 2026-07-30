@@ -99,13 +99,36 @@ func extractDockerState(state *dockerState) error {
 
 	for _, volume := range volumes {
 		if docker.VolumeAnonymous(volume.Labels) {
-			console.PrintWithColoredForeground(os.Stdout, console.WARNING, "Volume '%s' is anonymous and won't be exported", volume.Name)
 			// TODO: give user options:
 			//     A) Keep volume anonymous and keeep data
 			//     B) Keep volume anonymous and drop data
 			//     C) Convert to named volume and keep data
 			//     D) Convert to named volume and drop data
 			//     E) Abort
+
+			console.PrintWithColoredForeground(os.Stdout, console.INFO, "Volume '%s' is anonymous, please choose how to handle this:", volume.Name)
+			console.PrintWithColoredForeground(os.Stdout, console.INFO, "    A) Keep volume anonymous and drop data")
+			console.PrintWithColoredForeground(os.Stdout, console.INFO, "    B) Keep volume anonymous and keep data")
+			console.PrintWithColoredForeground(os.Stdout, console.INFO, "    C) Convert to named volume and drop data")
+			console.PrintWithColoredForeground(os.Stdout, console.INFO, "    D) Convert to named volume and keep data")
+			console.PrintWithColoredForeground(os.Stdout, console.INFO, "    E) Abort")
+
+			input := console.Prompt("Choose an option (A/B/C/D/E): ", []string{"A", "B", "C", "D", "E"})
+
+			console.ClearNLinesAndPositionCursorAtStart(7)
+
+			switch input {
+			case "A":
+				break
+			case "B":
+				break
+			case "C":
+				break
+			case "D":
+				break
+			case "E":
+				return fmt.Errorf("User abort")
+			}
 			continue // Don't export anonymous volumes
 		}
 
