@@ -19,7 +19,7 @@ func Prompt(text string, expected []string) string {
 		input = strings.Replace(input, "\n", "", -1)
 		input = strings.Replace(input, "\r", "", -1)
 
-		if slices.Contains(expected, input) {
+		if slices.Contains(expected, input) || len(expected) <= 0 {
 			return input
 		}
 
