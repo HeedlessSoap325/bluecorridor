@@ -9,6 +9,7 @@ import (
 	"github.com/heedlesssoap325/bluecorridor/internal/compression"
 	"github.com/heedlesssoap325/bluecorridor/internal/console"
 	"github.com/heedlesssoap325/bluecorridor/internal/docker"
+	"github.com/moby/moby/client"
 )
 
 func handleExport(args []string) error {
@@ -37,15 +38,6 @@ func handleExport(args []string) error {
 
 	defer os.RemoveAll(*output) // CLEANUP
 
-	/// SAVE VOLUMES
-	volumeDir := fmt.Sprintf("%s/%s", *output, volumeDirName)
-	err = os.MkdirAll(volumeDir, 0755)
-	if err != nil {
-		return fmt.Errorf("Could not create volumes directory in output directory %s: %s", *output, err)
-	}
-
-	saveVolumes(volumeDir)
-
 	/// CREATE METADATA FILE
 	var state dockerState
 	if err := extractDockerState(&state); err != nil {
@@ -62,6 +54,15 @@ func handleExport(args []string) error {
 	if err != nil {
 		return fmt.Errorf("Error occured while creating file %s: %s", metadataFile, err)
 	}
+
+	/// SAVE VOLUMES
+	volumeDir := fmt.Sprintf("%s/%s", *output, volumeDirName)
+	err = os.MkdirAll(volumeDir, 0755)
+	if err != nil {
+		return fmt.Errorf("Could not create volumes directory in output directory %s: %s", *output, err)
+	}
+
+	saveVolumes(state.Volumes, volumeDir)
 
 	/// ASSEMBLE FINAL OUTPUT FILE
 	outputFile := fmt.Sprintf("%s.tar.gz", *output)
@@ -99,6 +100,12 @@ func extractDockerState(state *dockerState) error {
 	for _, volume := range volumes {
 		if docker.VolumeAnonymous(volume.Labels) {
 			console.PrintWithColoredForeground(os.Stdout, console.WARNING, "Volume '%s' is anonymous and won't be exported", volume.Name)
+			// TODO: give user options:
+			//     A) Keep volume anonymous and keeep data
+			//     B) Keep volume anonymous and drop data
+			//     C) Convert to named volume and keep data
+			//     D) Convert to named volume and drop data
+			//     E) Abort
 			continue // Don't export anonymous volumes
 		}
 
@@ -149,33 +156,18 @@ func extractDockerState(state *dockerState) error {
 	return nil
 }
 
-func saveVolumes(outputDir string) error {
-	volumes, err := docker.VolumeList(nil)
-	if err != nil {
-		return err
-	}
-
+func saveVolumes(volumes []client.VolumeInspectResult, outputDir string) error {
 	for _, volume := range volumes {
-		if docker.VolumeAnonymous(volume.Labels) {
-			// TODO: give user options:
-			//     A) Keep volume anonymous and keeep data
-			//     B) Keep volume anonymous and drop data
-			//     C) Convert to named volume and keep data
-			//     D) Convert to named volume and drop data
-			//     E) Abort
-			continue // Don't export anonymous volumes
-		}
+		console.PrintWithColoredForeground(os.Stdout, console.INFO, "Saving contents of volume '%s'", volume.Volume.Name)
 
-		console.PrintWithColoredForeground(os.Stdout, console.INFO, "Saving contents of volume '%s'", volume.Name)
-
-		err = docker.VolumeSave(volume.Name, volume.Name, outputDir)
+		err := docker.VolumeSave(volume.Volume.Name, volume.Volume.Name, outputDir) // TODO: handle saving of anonymous volumes correct
 		if err != nil {
 			return err
 		}
 
 		console.MoveCursorUpNLines(1)
 		console.ClearCurrentLine()
-		console.PrintWithColoredForeground(os.Stdout, console.SUCCESS, "Successfully saved contents of volume '%s'", volume.Name)
+		console.PrintWithColoredForeground(os.Stdout, console.SUCCESS, "Successfully saved contents of volume '%s'", volume.Volume.Name)
 	}
 
 	return nil
