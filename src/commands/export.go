@@ -98,6 +98,11 @@ func extractDockerState(state *dockerState) error {
 	}
 
 	for _, volume := range volumes {
+		inspect, err := docker.VolumeInspect(volume.Name)
+		if err != nil {
+			return err
+		}
+
 		if docker.VolumeAnonymous(volume.Labels) {
 			// TODO: give user options:
 			//     A) Keep volume anonymous and keeep data
@@ -119,26 +124,32 @@ func extractDockerState(state *dockerState) error {
 
 			switch input {
 			case "A":
-				break
+				inspect.Volume.Labels["dev.heedlesssoap.bluecorridor.volume.dataless"] = ""
+				inspect.Volume.Labels["com.docker.volume.anonymous"] = ""
 			case "B":
-				break
+				inspect.Volume.Labels["dev.heedlesssoap.bluecorridor.volume.reference"] = inspect.Volume.Name
+				inspect.Volume.Labels["com.docker.volume.anonymous"] = ""
 			case "C":
-				break
+				inspect.Volume.Labels["dev.heedlesssoap.bluecorridor.volume.dataless"] = ""
+				delete(inspect.Volume.Labels, "com.docker.volume.anonymous")
+
+				name := console.Prompt("New volume name: ", []string{})
+				console.ClearNLinesAndPositionCursorAtStart(1)
+				inspect.Volume.Name = name
 			case "D":
-				break
+				inspect.Volume.Labels["dev.heedlesssoap.bluecorridor.volume.reference"] = inspect.Volume.Name
+				delete(inspect.Volume.Labels, "com.docker.volume.anonymous")
+
+				name := console.Prompt("New volume name: ", []string{})
+				console.ClearNLinesAndPositionCursorAtStart(1)
+				inspect.Volume.Name = name
 			case "E":
 				return fmt.Errorf("User abort")
 			}
-			continue // Don't export anonymous volumes
-		}
-
-		inspect, err := docker.VolumeInspect(volume.Name)
-		if err != nil {
-			return err
 		}
 
 		state.Volumes = append(state.Volumes, inspect)
-		console.PrintWithColoredForeground(os.Stdout, console.SUCCESS, "Successfully saved metadata of volume '%s'", volume.Name)
+		console.PrintWithColoredForeground(os.Stdout, console.SUCCESS, "Successfully saved metadata of volume '%s'", inspect.Volume.Name)
 	}
 
 	networks, err := docker.NetworkList(nil)
@@ -181,6 +192,8 @@ func extractDockerState(state *dockerState) error {
 
 func saveVolumes(volumes []client.VolumeInspectResult, outputDir string) error {
 	for _, volume := range volumes {
+		// TODO: handle anonymous volumes
+
 		console.PrintWithColoredForeground(os.Stdout, console.INFO, "Saving contents of volume '%s'", volume.Volume.Name)
 
 		err := docker.VolumeSave(volume.Volume.Name, volume.Volume.Name, outputDir) // TODO: handle saving of anonymous volumes correct
