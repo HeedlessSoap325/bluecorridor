@@ -64,7 +64,7 @@ func handleImport(args []string) error {
 		return fmt.Errorf("Incompatible metadata versions. Export: %s, this programm: %s\nThe file provided is either to new or to old for this programm", state.Version, exportVersion)
 	}
 
-	if err := importDockerState(state); err != nil {
+	if err := importDockerState(&state); err != nil {
 		return err
 	}
 
@@ -74,7 +74,7 @@ func handleImport(args []string) error {
 	return nil
 }
 
-func importDockerState(state dockerState) error {
+func importDockerState(state *dockerState) error {
 	for _, inspect := range state.Images {
 		if len(inspect.RepoTags) <= 0 {
 			fmt.Fprintln(os.Stderr, "UNIMPLEMENTED: Image had no RepoTags")
@@ -95,21 +95,25 @@ func importDockerState(state dockerState) error {
 		console.PrintWithColoredForeground(os.Stdout, console.SUCCESS, "Successfully pulled image '%s'", inspect.RepoTags[0])
 	}
 
-	for _, inspect := range state.Volumes {
-		if docker.VolumeAnonymous(inspect.Volume.Labels) {
-			console.PrintWithColoredForeground(os.Stdout, console.WARNING, "Volume '%s' is anonymous, can't recreate", inspect.Volume.Name)
-			continue
-		}
-
-		fmt.Fprintf(os.Stdout, "Creating volume '%s'\n", inspect.Volume.Name)
+	for idx, inspect := range state.Volumes {
+		fmt.Fprintf(os.Stdout, "Re-Creating volume '%s'\n", inspect.Volume.Name)
 
 		var clusterVolumeSpec *volume.ClusterVolumeSpec
 		if inspect.Volume.ClusterVolume != nil {
 			clusterVolumeSpec = &inspect.Volume.ClusterVolume.Spec
 		}
 
-		err := docker.VolumeCreate(client.VolumeCreateOptions{
-			Name:              inspect.Volume.Name,
+		// Delete labels assigned by bluecorridor for metadata file only, so they don't get re-created
+		delete(inspect.Volume.Labels, "dev.heedlesssoap.bluecorridor.volume.dataless")
+		delete(inspect.Volume.Labels, "dev.heedlesssoap.bluecorridor.volume.reference")
+
+		volumeName := inspect.Volume.Name
+		if docker.VolumeAnonymous(inspect.Volume.Labels) {
+			volumeName = "" // This creates a anonymous volume
+		}
+
+		volume, err := docker.VolumeCreate(client.VolumeCreateOptions{
+			Name:              volumeName,
 			Driver:            inspect.Volume.Driver,
 			DriverOpts:        inspect.Volume.Options,
 			Labels:            inspect.Volume.Labels,
@@ -120,9 +124,13 @@ func importDockerState(state dockerState) error {
 			return err
 		}
 
+		if docker.VolumeAnonymous(inspect.Volume.Labels) {
+			state.Volumes[idx].Volume.Name = volume.Name // Set name to the newly created anonymous volume
+		}
+
 		console.MoveCursorUpNLines(1)
 		console.ClearCurrentLine() // Clear "Creating volume ..." line
-		console.PrintWithColoredForeground(os.Stdout, console.SUCCESS, "Successfully created volume '%s'", inspect.Volume.Name)
+		console.PrintWithColoredForeground(os.Stdout, console.SUCCESS, "Successfully created volume '%s'", volume.Name)
 	}
 
 	for _, inspect := range state.Networks {
@@ -192,6 +200,7 @@ func importDockerState(state dockerState) error {
 }
 
 func restoreVolumes(volumeInspects []client.VolumeInspectResult, inDir string) error {
+	// TODO: handle anonymous and dataless volumes
 	for _, volume := range volumeInspects {
 		fmt.Fprintf(os.Stdout, "Restoring contents of volume '%s'\n", volume.Volume.Name)
 		err := docker.VolumeRestore(volume.Volume.Name, volume.Volume.Name, inDir)
