@@ -192,18 +192,28 @@ func extractDockerState(state *dockerState) error {
 
 func saveVolumes(volumes []client.VolumeInspectResult, outputDir string) error {
 	for _, volume := range volumes {
-		// TODO: handle anonymous volumes
+		if docker.VolumeDataless(volume.Volume.Labels) {
+			continue // If a volume doesn't have data, it doesn't need to be exported
+		}
 
-		console.PrintWithColoredForeground(os.Stdout, console.INFO, "Saving contents of volume '%s'", volume.Volume.Name)
+		volumeName := volume.Volume.Name
+		saveName := volume.Volume.Name
 
-		err := docker.VolumeSave(volume.Volume.Name, volume.Volume.Name, outputDir) // TODO: handle saving of anonymous volumes correct
+		if isReference, reference := docker.VolumeReference(volume.Volume.Labels); isReference {
+			volumeName = reference
+			saveName = reference
+		}
+
+		console.PrintWithColoredForeground(os.Stdout, console.INFO, "Saving contents of volume '%s'", volumeName)
+
+		err := docker.VolumeSave(volumeName, saveName, outputDir)
 		if err != nil {
 			return err
 		}
 
 		console.MoveCursorUpNLines(1)
 		console.ClearCurrentLine()
-		console.PrintWithColoredForeground(os.Stdout, console.SUCCESS, "Successfully saved contents of volume '%s'", volume.Volume.Name)
+		console.PrintWithColoredForeground(os.Stdout, console.SUCCESS, "Successfully saved contents of volume '%s'", volumeName)
 	}
 
 	return nil

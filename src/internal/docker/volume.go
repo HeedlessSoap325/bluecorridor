@@ -161,3 +161,13 @@ func VolumeAnonymous(VolumeLabels map[string]string) bool {
 	_, isAnonymous := VolumeLabels["com.docker.volume.anonymous"]
 	return isAnonymous
 }
+
+func VolumeDataless(VolumeLabels map[string]string) bool {
+	_, isdataless := VolumeLabels["dev.heedlesssoap.bluecorridor.volume.dataless"]
+	return isdataless
+}
+
+func VolumeReference(VolumeLabels map[string]string) (bool, string) {
+	ref, isReference := VolumeLabels["dev.heedlesssoap.bluecorridor.volume.reference"]
+	return isReference, ref
+}
