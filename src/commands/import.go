@@ -133,6 +133,7 @@ func importDockerState(state *dockerState) error {
 		console.PrintWithColoredForeground(os.Stdout, console.SUCCESS, "Successfully created volume '%s'", volume.Name)
 	}
 
+	networkNameToID := make(map[string]string)
 	for _, inspect := range state.Networks {
 		if docker.NetworkNameReserved(inspect.Network.Name) {
 			console.PrintWithColoredForeground(os.Stdout, console.WARNING, "Network '%s' is a built-in network. Can't use that name. Skiping", inspect.Network.Name)
@@ -160,6 +161,8 @@ func importDockerState(state *dockerState) error {
 			return err
 		}
 
+		networkNameToID[inspect.Network.Name] = id
+
 		console.MoveCursorUpNLines(1)
 		console.ClearCurrentLine() // Clear "Creating network ..." line
 		console.PrintWithColoredForeground(os.Stdout, console.SUCCESS, "Successfully created network '%s': %s", inspect.Network.Name, id)
@@ -184,8 +187,19 @@ func importDockerState(state *dockerState) error {
 
 		// If the client or daemon version were below 1.44, passing multiple networks for container creation would result in a error or wrong configuration of the container
 		// This approach of itterating all networks the container was connected to and re-connecting them works with all versions, and is herefor more compatible, even tough prbably never actually necessary
-		for network, endpointSettings := range inspect.Container.NetworkSettings.Networks {
-			err := docker.NetworkConnect(network, client.NetworkConnectOptions{
+		for networkName, endpointSettings := range inspect.Container.NetworkSettings.Networks {
+			newNetworkID, ok := networkNameToID[networkName]
+			if !ok {
+				// e.g. it was a reserved/skipped network like "bridge"/"host"/"none"
+				newNetworkID = networkName // fall back to connecting by name
+			}
+
+			// Strip stale identifiers from the old host before reusing the struct
+			// these will be filled in by the docker deamon once the container starts up
+			endpointSettings.NetworkID = ""
+			endpointSettings.EndpointID = ""
+
+			err := docker.NetworkConnect(newNetworkID, client.NetworkConnectOptions{
 				Container:      id,
 				EndpointConfig: endpointSettings,
 			})
