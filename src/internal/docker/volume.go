@@ -38,14 +38,14 @@ func VolumeInspect(volumeID string) (client.VolumeInspectResult, error) {
 	return inspect, nil
 }
 
-func VolumeCreate(opts client.VolumeCreateOptions) error {
-	_, err := dockerClient.VolumeCreate(ctx, opts)
+func VolumeCreate(opts client.VolumeCreateOptions) (volume.Volume, error) {
+	res, err := dockerClient.VolumeCreate(ctx, opts)
 
 	if err != nil {
-		return err
+		return volume.Volume{} ,err
 	}
 
-	return nil
+	return res.Volume ,nil
 }
 
 // Save the contents of a volume into a tar archive
