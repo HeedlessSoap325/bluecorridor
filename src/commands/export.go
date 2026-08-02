@@ -131,6 +131,7 @@ func extractDockerState(state *dockerState) error {
 				inspect.Volume.Labels["com.docker.volume.anonymous"] = ""
 			case "C":
 				inspect.Volume.Labels["dev.heedlesssoap.bluecorridor.volume.dataless"] = ""
+				inspect.Volume.Labels["dev.heedlesssoap.bluecorridor.volume.reference"] = inspect.Volume.Name
 				delete(inspect.Volume.Labels, "com.docker.volume.anonymous")
 
 				name := console.Prompt("New volume name: ", []string{})
