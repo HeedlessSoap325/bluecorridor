@@ -278,7 +278,6 @@ func importDockerState(state *dockerState) error {
 }
 
 func restoreVolumes(volumeInspects []client.VolumeInspectResult, inDir string) error {
-	// TODO: handle anonymous and dataless volumes
 	for _, volume := range volumeInspects {
 		if docker.VolumeDataless(volume.Volume.Labels) {
 			continue // No data to import so just skip it

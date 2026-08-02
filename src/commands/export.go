@@ -104,13 +104,6 @@ func extractDockerState(state *dockerState) error {
 		}
 
 		if docker.VolumeAnonymous(volume.Labels) {
-			// TODO: give user options:
-			//     A) Keep volume anonymous and keeep data
-			//     B) Keep volume anonymous and drop data
-			//     C) Convert to named volume and keep data
-			//     D) Convert to named volume and drop data
-			//     E) Abort
-
 			console.PrintWithColoredForeground(os.Stdout, console.INFO, "Volume '%s' is anonymous, please choose how to handle this:", volume.Name)
 			console.PrintWithColoredForeground(os.Stdout, console.INFO, "    A) Keep volume anonymous and drop data")
 			console.PrintWithColoredForeground(os.Stdout, console.INFO, "    B) Keep volume anonymous and keep data")
