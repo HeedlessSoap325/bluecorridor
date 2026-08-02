@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"strings"
@@ -103,9 +104,12 @@ func importDockerState(state *dockerState) error {
 			clusterVolumeSpec = &inspect.Volume.ClusterVolume.Spec
 		}
 
+		volumeLabels := make(map[string]string, len(inspect.Volume.Labels))
+		maps.Copy(volumeLabels, inspect.Volume.Labels)
+
 		// Delete labels assigned by bluecorridor for metadata file only, so they don't get re-created
-		delete(inspect.Volume.Labels, "dev.heedlesssoap.bluecorridor.volume.dataless")
-		delete(inspect.Volume.Labels, "dev.heedlesssoap.bluecorridor.volume.reference")
+		delete(volumeLabels, "dev.heedlesssoap.bluecorridor.volume.dataless")
+		delete(volumeLabels, "dev.heedlesssoap.bluecorridor.volume.reference")
 
 		volumeName := inspect.Volume.Name
 		if docker.VolumeAnonymous(inspect.Volume.Labels) {
@@ -116,7 +120,7 @@ func importDockerState(state *dockerState) error {
 			Name:              volumeName,
 			Driver:            inspect.Volume.Driver,
 			DriverOpts:        inspect.Volume.Options,
-			Labels:            inspect.Volume.Labels,
+			Labels:            volumeLabels,
 			ClusterVolumeSpec: clusterVolumeSpec,
 		})
 
@@ -216,16 +220,27 @@ func importDockerState(state *dockerState) error {
 func restoreVolumes(volumeInspects []client.VolumeInspectResult, inDir string) error {
 	// TODO: handle anonymous and dataless volumes
 	for _, volume := range volumeInspects {
-		fmt.Fprintf(os.Stdout, "Restoring contents of volume '%s'\n", volume.Volume.Name)
-		err := docker.VolumeRestore(volume.Volume.Name, volume.Volume.Name, inDir)
+		if docker.VolumeDataless(volume.Volume.Labels) {
+			continue // No data to import so just skip it
+		}
 
+		volumeName := volume.Volume.Name
+		saveName := volume.Volume.Name
+
+		if isReference, reference := docker.VolumeReference(volume.Volume.Labels); isReference {
+			saveName = reference
+		}
+
+		fmt.Fprintf(os.Stdout, "Restoring contents of volume '%s'\n", saveName)
+
+		err := docker.VolumeRestore(volumeName, saveName, inDir)
 		if err != nil {
 			return err
 		}
 
 		console.MoveCursorUpNLines(1)
 		console.ClearCurrentLine() // Clear "Restoring contents of volume ..." line
-		console.PrintWithColoredForeground(os.Stdout, console.SUCCESS, "Successfully restored contents of volume '%s'", volume.Volume.Name)
+		console.PrintWithColoredForeground(os.Stdout, console.SUCCESS, "Successfully restored contents of volume '%s'", saveName)
 	}
 
 	return nil
