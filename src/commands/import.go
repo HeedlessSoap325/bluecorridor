@@ -12,6 +12,7 @@ import (
 	"github.com/heedlesssoap325/bluecorridor/internal/compression"
 	"github.com/heedlesssoap325/bluecorridor/internal/console"
 	"github.com/heedlesssoap325/bluecorridor/internal/docker"
+	"github.com/moby/moby/api/types/mount"
 	"github.com/moby/moby/api/types/volume"
 	"github.com/moby/moby/client"
 )
@@ -96,6 +97,7 @@ func importDockerState(state *dockerState) error {
 		console.PrintWithColoredForeground(os.Stdout, console.SUCCESS, "Successfully pulled image '%s'", inspect.RepoTags[0])
 	}
 
+	volumeMap := make(map[string]string)
 	for idx, inspect := range state.Volumes {
 		fmt.Fprintf(os.Stdout, "Re-Creating volume '%s'\n", inspect.Volume.Name)
 
@@ -127,6 +129,13 @@ func importDockerState(state *dockerState) error {
 		if err != nil {
 			return err
 		}
+
+		origName := inspect.Volume.Name
+		if isReference, reference := docker.VolumeReference(inspect.Volume.Labels); isReference {
+			origName = reference
+		}
+
+		volumeMap[origName] = volume.Name
 
 		if docker.VolumeAnonymous(inspect.Volume.Labels) {
 			state.Volumes[idx].Volume.Name = volume.Name // Set name to the newly created anonymous volume
@@ -174,6 +183,37 @@ func importDockerState(state *dockerState) error {
 
 	for _, inspect := range state.Containers {
 		containerName, _ := strings.CutPrefix(inspect.Container.Name, "/")
+
+		// Override the containers old mounts to consider the potential changes with anonymous volumes
+		newMounts := make([]mount.Mount, 0, len(inspect.Container.Mounts))
+		for _, mountPoint := range inspect.Container.Mounts {
+			switch mountPoint.Type {
+			case mount.TypeVolume:
+				newName, ok := volumeMap[mountPoint.Name] // old name (or old anonymous ID) -> new volume name
+				if !ok {
+					return fmt.Errorf("no mapping found for volume %q (dest %s)", mountPoint.Name, mountPoint.Destination)
+				}
+
+				newMounts = append(newMounts, mount.Mount{
+					Type:   mount.TypeVolume,
+					Source: newName, // new volume name
+					Target: mountPoint.Destination,
+				})
+			case mount.TypeBind:
+				// keep as-is
+				newMounts = append(newMounts, mount.Mount{
+					Type:     mount.TypeBind,
+					Source:   mountPoint.Source,
+					Target:   mountPoint.Destination,
+					ReadOnly: !mountPoint.RW,
+				})
+			default:
+				return fmt.Errorf("UNSUPPORTED: volume of type %s can't be re-created (yet)", mountPoint.Type)
+			}
+		}
+
+		inspect.Container.HostConfig.Mounts = newMounts
+		inspect.Container.HostConfig.Binds = nil // clear legacy Binds so it doesn't fight with Mounts
 
 		id, err := docker.ContainerCreate(client.ContainerCreateOptions{
 			Config:           inspect.Container.Config,
