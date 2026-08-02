@@ -180,14 +180,19 @@ func importDockerState(state *dockerState) error {
 	for _, inspect := range state.Containers {
 		containerName, _ := strings.CutPrefix(inspect.Container.Name, "/")
 
-		// Override the containers old mounts to consider the potential changes with anonymous volumes
+		anonymousMounts := make(map[string]string)
 		newMounts := make([]mount.Mount, 0, len(inspect.Container.Mounts))
+
+		// Override the containers old mounts to consider the potential changes with anonymous volumes
 		for _, mountPoint := range inspect.Container.Mounts {
 			switch mountPoint.Type {
 			case mount.TypeVolume:
 				newName, ok := volumeMap[mountPoint.Name] // old name (or old anonymous ID) -> new volume name (or empty for anonymous volumes)
 				if !ok {
 					return fmt.Errorf("no mapping found for volume %q (dest %s)", mountPoint.Name, mountPoint.Destination)
+				}
+				if newName == "" {
+					anonymousMounts[mountPoint.Name] = mountPoint.Destination
 				}
 
 				newMounts = append(newMounts, mount.Mount{
@@ -224,6 +229,25 @@ func importDockerState(state *dockerState) error {
 		}
 
 		console.PrintWithColoredForeground(os.Stdout, console.SUCCESS, "Successfully created container '%s': %s", containerName, id)
+
+		inspect, err := docker.ContainerInspect(id)
+		if err != nil {
+			return err
+		}
+
+		// This searches for all newly created anonymous volumes (identified by their destination)
+		// and then replaces the old name from the export with the name of the newly created truely anonymous volume
+		for originalName, dest := range anonymousMounts {
+			for _, mount := range inspect.Container.Mounts {
+				if mount.Destination == dest {
+					for idx := range state.Volumes {
+						if state.Volumes[idx].Volume.Name == originalName {
+							state.Volumes[idx].Volume.Name = mount.Name
+						}
+					}
+				}
+			}
+		}
 
 		// If the client or daemon version were below 1.44, passing multiple networks for container creation would result in a error or wrong configuration of the container
 		// This approach of itterating all networks the container was connected to and re-connecting them works with all versions, and is herefor more compatible, even tough prbably never actually necessary
