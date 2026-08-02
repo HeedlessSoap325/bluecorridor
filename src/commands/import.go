@@ -98,7 +98,17 @@ func importDockerState(state *dockerState) error {
 	}
 
 	volumeMap := make(map[string]string)
-	for idx, inspect := range state.Volumes {
+	for _, inspect := range state.Volumes {
+		originalName := inspect.Volume.Name
+		if isReference, reference := docker.VolumeReference(inspect.Volume.Labels); isReference {
+			originalName = reference
+		}
+
+		if docker.VolumeAnonymous(inspect.Volume.Labels) {
+			volumeMap[originalName] = "" // This will cause docker to create a new truely anonymous volume when the container gets created
+			continue                     // Don't do anything else here
+		}
+
 		fmt.Fprintf(os.Stdout, "Re-Creating volume '%s'\n", inspect.Volume.Name)
 
 		var clusterVolumeSpec *volume.ClusterVolumeSpec
@@ -113,13 +123,8 @@ func importDockerState(state *dockerState) error {
 		delete(volumeLabels, "dev.heedlesssoap.bluecorridor.volume.dataless")
 		delete(volumeLabels, "dev.heedlesssoap.bluecorridor.volume.reference")
 
-		volumeName := inspect.Volume.Name
-		if docker.VolumeAnonymous(inspect.Volume.Labels) {
-			volumeName = "" // This creates a anonymous volume
-		}
-
 		volume, err := docker.VolumeCreate(client.VolumeCreateOptions{
-			Name:              volumeName,
+			Name:              inspect.Volume.Name,
 			Driver:            inspect.Volume.Driver,
 			DriverOpts:        inspect.Volume.Options,
 			Labels:            volumeLabels,
@@ -130,16 +135,7 @@ func importDockerState(state *dockerState) error {
 			return err
 		}
 
-		origName := inspect.Volume.Name
-		if isReference, reference := docker.VolumeReference(inspect.Volume.Labels); isReference {
-			origName = reference
-		}
-
-		volumeMap[origName] = volume.Name
-
-		if docker.VolumeAnonymous(inspect.Volume.Labels) {
-			state.Volumes[idx].Volume.Name = volume.Name // Set name to the newly created anonymous volume
-		}
+		volumeMap[originalName] = volume.Name // Map the original name present in the exports to the new name present on the host
 
 		console.MoveCursorUpNLines(1)
 		console.ClearCurrentLine() // Clear "Creating volume ..." line
@@ -189,14 +185,14 @@ func importDockerState(state *dockerState) error {
 		for _, mountPoint := range inspect.Container.Mounts {
 			switch mountPoint.Type {
 			case mount.TypeVolume:
-				newName, ok := volumeMap[mountPoint.Name] // old name (or old anonymous ID) -> new volume name
+				newName, ok := volumeMap[mountPoint.Name] // old name (or old anonymous ID) -> new volume name (or empty for anonymous volumes)
 				if !ok {
 					return fmt.Errorf("no mapping found for volume %q (dest %s)", mountPoint.Name, mountPoint.Destination)
 				}
 
 				newMounts = append(newMounts, mount.Mount{
 					Type:   mount.TypeVolume,
-					Source: newName, // new volume name
+					Source: newName, // new volume name (docker will create a anonymous volume when this is empty)
 					Target: mountPoint.Destination,
 				})
 			case mount.TypeBind:
