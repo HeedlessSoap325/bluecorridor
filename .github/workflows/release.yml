@@ -35,6 +35,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: "1.26.5"
+          cache-dependency-path: src/go.sum
 
       - name: Build binary
         env:
