@@ -22,9 +22,25 @@ I have a few Docker Containers and Compose Projects, with a lot of volumes and c
 
 **1. Download the executable for your system**
 
-**2. Run the command**
+**2. Give the programm execution permission**
 
-// TBD
+This step is only necessary if you are on a **linux based** operating system
+
+```shell
+chmod u+x ./bluecorridor-{version}-{platform}-{architecture}
+```
+
+**3. Run the command**
+
+```shell
+./bluecorridor-{version}-{platform}-{architecture}[.exe] export
+```
+
+for help:
+
+```shell
+./bluecorridor-{version}-{platform}-{architecture}[.exe] help
+```
 
 ---
 
@@ -39,11 +55,23 @@ I have a few Docker Containers and Compose Projects, with a lot of volumes and c
 **1. Clone the repository**
 
 ```shell
-git clone https://github.com/HeedlessSoap325/bluecorridor.git && cd bluecorridor
+git clone https://github.com/HeedlessSoap325/bluecorridor.git
 ```
 
-**2. Run the project**
+**2. navigate to the source directory**
 
 ```shell
-go run main.go //TBD
+cd bluecorridor/src
+```
+
+**3. Run the project**
+
+```shell
+go run main.go export
+```
+
+for help:
+
+```shell
+go run main.go help
 ```
