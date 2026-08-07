@@ -93,16 +93,16 @@ func handleList(args []string) error {
 			method, _ := docker.DetermineTransferMethod(image.RepoTags, image.RepoDigests)
 			switch method {
 			case docker.MethodPull:
-				fmt.Fprintf(os.Stdout, "    %s (pullable)\n", image.RepoTags[0])
+				fmt.Fprintf(os.Stdout, "    %s (pullable)\n", imageName)
 
 			case docker.MethodSaveLoad:
-				inspect, err := docker.ImageInspect(image.ID)
+				imageSize, err := docker.ImageSize(image.ID)
 				if err != nil {
 					return err
 				}
 
-				fmt.Fprintf(os.Stdout, "    %s (>=%s)\n", image.RepoTags[0], console.FormatBytes(inspect.Size))
-				totalExportSize += inspect.Size
+				fmt.Fprintf(os.Stdout, "    %s (>=%s)\n", imageName, console.FormatBytes(imageSize))
+				totalExportSize += imageSize
 			}
 		}
 	}

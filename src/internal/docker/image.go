@@ -254,3 +254,19 @@ func DetermineTransferMethod(repoTags []string, repoDigests []string) (TransferM
 	// All tags are exhausted and none of them returned a pullable image option -> save and load
 	return MethodSaveLoad, ""
 }
+
+func ImageSize(imageID string) (int64, error) {
+	res, err := dockerClient.ImageHistory(ctx, imageID)
+	if err != nil {
+		return 0, fmt.Errorf("Erroroccured while loading image history: %s", err)
+	}
+
+	var totalSize int64 = 0
+	for _, item := range res.Items {
+		if item.Size > 0 {
+			totalSize += item.Size
+		}
+	}
+
+	return totalSize, nil
+}
