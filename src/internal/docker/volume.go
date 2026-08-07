@@ -161,6 +161,12 @@ func VolumeRestore(volumeName string, saveName string, inDir string) error {
 }
 
 func VolumeSize(volumeName string) (int64, error) {
+	// Pull alpine:latest if not already present
+	err := ImagePull("alpine", false)
+	if err != nil {
+		return 0, err
+	}
+
 	// Create a dummy container which mounts the volume and executes du
 	id, err := ContainerCreate(client.ContainerCreateOptions{
 		Config: &container.Config{
@@ -210,7 +216,7 @@ func VolumeSize(volumeName string) (int64, error) {
 	if err != nil {
 		return 0, fmt.Errorf("container logs failed: %w", err)
 	}
-	
+
 	defer out.Close()
 
 	// Docker multiplexes stdout/stderr into a stream with 8-byte headers stdcopy strips those headers properly
