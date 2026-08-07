@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/heedlesssoap325/bluecorridor/internal/docker"
 )
@@ -38,7 +39,8 @@ func handleList(args []string) error {
 		fmt.Println("    No Containers found")
 	} else {
 		for _, container := range containers {
-			fmt.Fprintf(os.Stdout, "    %s\n", container.Names[0])
+			containerName, _ := strings.CutPrefix(container.Names[0], "/")
+			fmt.Fprintf(os.Stdout, "    %s\n", containerName)
 		}
 	}
 
@@ -74,6 +76,9 @@ func handleList(args []string) error {
 		fmt.Println("    No images found")
 	} else {
 		for _, image := range images {
+			if len(image.RepoTags) <= 0 {
+				fmt.Fprint(os.Stdout, "    <none>:<none>\n")
+			}
 			fmt.Fprintf(os.Stdout, "    %s\n", image.RepoTags[0])
 		}
 	}
@@ -88,11 +93,13 @@ func handleList(args []string) error {
 		fmt.Println("Networks:")
 	}
 
-	if len(networks) <= 0 {
-		fmt.Println("    No networks found")
+	if len(networks)-3 <= 0 { // Don't show Built-In networks, and there are three of them
+		fmt.Println("    No custom networks found")
 	} else {
 		for _, network := range networks {
-			fmt.Fprintf(os.Stdout, "    %s\n", network.Name)
+			if !docker.NetworkNameReserved(network.Name) {
+				fmt.Fprintf(os.Stdout, "    %s\n", network.Name)
+			}
 		}
 	}
 
