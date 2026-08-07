@@ -85,8 +85,9 @@ func handleList(args []string) error {
 		fmt.Println("    No images found")
 	} else {
 		for _, image := range images {
-			if len(image.RepoTags) <= 0 {
-				fmt.Fprint(os.Stdout, "    <none>:<none>\n")
+			imageName := "<none>:<none>"
+			if len(image.RepoTags) > 0 {
+				imageName = image.RepoTags[0]
 			}
 
 			method, _ := docker.DetermineTransferMethod(image.RepoTags, image.RepoDigests)
