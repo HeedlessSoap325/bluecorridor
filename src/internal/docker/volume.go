@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
+	"strings"
 
+	"github.com/moby/moby/api/pkg/stdcopy"
 	"github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/api/types/mount"
 	"github.com/moby/moby/api/types/volume"
@@ -42,10 +45,10 @@ func VolumeCreate(opts client.VolumeCreateOptions) (volume.Volume, error) {
 	res, err := dockerClient.VolumeCreate(ctx, opts)
 
 	if err != nil {
-		return volume.Volume{} ,err
+		return volume.Volume{}, err
 	}
 
-	return res.Volume ,nil
+	return res.Volume, nil
 }
 
 // Save the contents of a volume into a tar archive
@@ -155,6 +158,78 @@ func VolumeRestore(volumeName string, saveName string, inDir string) error {
 		return fmt.Errorf("Error occured while copying tar archive to container '%s': %s", id, err)
 	}
 	return nil
+}
+
+func VolumeSize(volumeName string) (int64, error) {
+	// Create a dummy container which mounts the volume and executes du
+	id, err := ContainerCreate(client.ContainerCreateOptions{
+		Config: &container.Config{
+			Image: "alpine",
+			Cmd:   []string{"du", "-sb", "/data"},
+		},
+		HostConfig: &container.HostConfig{
+			Mounts: []mount.Mount{
+				{
+					Type:     mount.TypeVolume,
+					Source:   volumeName,
+					Target:   "/data",
+					ReadOnly: true,
+				},
+			},
+		},
+		NetworkingConfig: nil,
+		Platform:         nil,
+		Name:             "",
+	})
+	if err != nil {
+		return 0, err
+	}
+
+	defer ContainerRemove(id)
+
+	// Start the dummy container so the command runs
+	if err := ContainerStart(id); err != nil {
+		return 0, fmt.Errorf("container start failed: %w", err)
+	}
+
+	// Wait for the container to finish execution
+	res := dockerClient.ContainerWait(ctx, id, client.ContainerWaitOptions{})
+	select {
+	case err := <-res.Error:
+		if err != nil {
+			return 0, fmt.Errorf("container wait failed: %w", err)
+		}
+	case <-res.Result:
+	}
+
+	// Grab the Stdout of the container
+	out, err := dockerClient.ContainerLogs(ctx, id, client.ContainerLogsOptions{
+		ShowStdout: true,
+		ShowStderr: true,
+	})
+	if err != nil {
+		return 0, fmt.Errorf("container logs failed: %w", err)
+	}
+	
+	defer out.Close()
+
+	// Docker multiplexes stdout/stderr into a stream with 8-byte headers stdcopy strips those headers properly
+	var buf strings.Builder
+	if _, err := stdcopy.StdCopy(&buf, io.Discard, out); err != nil {
+		return 0, fmt.Errorf("stdcopy failed: %w", err)
+	}
+
+	// Output is "<size in bytes>\t/data\n"
+	fields := strings.Fields(buf.String())
+	if len(fields) == 0 {
+		return 0, nil
+	}
+
+	bytes, err := strconv.ParseInt(fields[0], 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse du output %q: %w", fields[0], err)
+	}
+	return bytes, nil
 }
 
 func VolumeAnonymous(VolumeLabels map[string]string) bool {
