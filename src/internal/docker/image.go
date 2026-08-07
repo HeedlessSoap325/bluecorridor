@@ -1,12 +1,22 @@
 package docker
 
 import (
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
+	"strings"
 
 	"github.com/heedlesssoap325/bluecorridor/internal/console"
 	"github.com/moby/moby/api/types/image"
 	"github.com/moby/moby/client"
+)
+
+type TransferMethod int
+
+const (
+	MethodPull TransferMethod = iota
+	MethodSaveLoad
 )
 
 // List all Images
@@ -118,4 +128,129 @@ func imagePullPrettyprint(pullResponse client.ImagePullResponse) {
 	if printed > 0 {
 		console.ClearNLinesAndPositionCursorAtStart(printed)
 	}
+}
+
+// Split image Refs like  "postgres:latest", "myrepo/app:v1", "ghcr.io/org/app:latest"
+//
+// returns (registry, repository, tag)
+func parseImageRef(ref string) (registry, repo, tag string) {
+	// Split off tag
+	tagParts := strings.SplitN(ref, ":", 2)
+
+	namePart := tagParts[0]
+
+	// If no tag is provided, use latest tag
+	if len(tagParts) == 2 {
+		tag = tagParts[1]
+	} else {
+		tag = "latest"
+	}
+
+	// Check if first component looks like a registry host
+	// (contains a dot, colon, or is "localhost")
+	parts := strings.SplitN(namePart, "/", 2)
+	if len(parts) == 2 && (strings.ContainsAny(parts[0], ".:") || parts[0] == "localhost") {
+		registry = parts[0]
+		repo = parts[1]
+	} else {
+		// Docker Hub
+		registry = "registry-1.docker.io"
+		repo = namePart
+
+		// Docker Hub official images need "library/" prefix
+		if !strings.Contains(repo, "/") {
+			repo = "library/" + repo
+		}
+	}
+
+	return
+}
+
+func getDockerHubToken(repo string) (string, error) {
+	// Get a temporary token to pull images from the given repository.
+	url := fmt.Sprintf("https://auth.docker.io/token?service=registry.docker.io&scope=repository:%s:pull", repo)
+	resp, err := http.Get(url)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	var result struct {
+		Token string `json:"token"`
+	}
+
+	// Decode the raw response into the result structure
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", err
+	}
+	return result.Token, nil
+}
+
+func checkDockerHubManifest(repo, tag, token string) (bool, error) {
+	// Get the Manifest of the given Image using the docker access token
+	url := fmt.Sprintf("https://registry-1.docker.io/v2/%s/manifests/%s", repo, tag)
+	req, _ := http.NewRequest("HEAD", url, nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Accept", "application/vnd.docker.distribution.manifest.v2+json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return false, err
+	}
+	defer resp.Body.Close()
+
+	// If the request to the manifest returns status 200, it is pullable with no further authentication
+	// If the status is not 200 however, the image is not pullable
+	return resp.StatusCode == http.StatusOK, nil
+}
+
+// Determin if a image can be pulled on the target or has to be saved and restored
+//
+// returns the TransferMethod, as well as a pullable tag, if it exists
+func DetermineTransferMethod(repoTags []string, repoDigests []string) (TransferMethod, string) {
+	// No usable tags -> local build -> not pullable
+	usableTags := []string{}
+	for _, tag := range repoTags {
+		if tag != "<none>:<none>" {
+			usableTags = append(usableTags, tag)
+		}
+	}
+
+	// If the image has no tags (unnamed) it can't be pullable
+	if len(usableTags) == 0 {
+		return MethodSaveLoad, ""
+	}
+
+	// No digests -> never pushed to any registry -> not pullable
+	if len(repoDigests) == 0 {
+		return MethodSaveLoad, ""
+	}
+
+	// Check if image is pullable via Docker Hub
+	for _, tag := range usableTags {
+		registry, repo, imageTag := parseImageRef(tag)
+
+		if registry != "registry-1.docker.io" {
+			// Private registry, ghcr.io etc. -> possibly unauthorized on target -> save to be sure
+			return MethodSaveLoad, ""
+		}
+
+		token, err := getDockerHubToken(repo)
+		if err != nil {
+			// When Docker is down or similar, save the image to be save
+			return MethodSaveLoad, ""
+		}
+
+		available, err := checkDockerHubManifest(repo, imageTag, token)
+		if err != nil {
+			return MethodSaveLoad, ""
+		}
+
+		if available {
+			return MethodPull, tag // found at least one pullable tag, done
+		}
+	}
+
+	// All tags are exhausted and none of them returned a pullable image option -> save and load
+	return MethodSaveLoad, ""
 }
