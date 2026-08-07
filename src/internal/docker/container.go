@@ -73,3 +73,12 @@ func printContainerCreationWarnings(name string, warnings []string) {
 		console.PrintWithColoredForeground(os.Stdout, console.WARNING, "    %s", warning)
 	}
 }
+
+func ContainerStart(containerId string) error {
+	_, err := dockerClient.ContainerStart(ctx, containerId, client.ContainerStartOptions{})
+	if err != nil {
+		return fmt.Errorf("Error occured while starting docker container: %s", err)
+	}
+
+	return nil
+}
