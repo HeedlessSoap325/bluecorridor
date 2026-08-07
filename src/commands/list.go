@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/heedlesssoap325/bluecorridor/internal/console"
 	"github.com/heedlesssoap325/bluecorridor/internal/docker"
 )
 
@@ -25,6 +26,8 @@ func handleList(args []string) error {
 	if *help {
 		fs.Usage()
 	}
+
+	var totalExportSize int64 = 0
 
 	containers, err := docker.ContainerList(nil)
 	if err != nil {
@@ -58,7 +61,13 @@ func handleList(args []string) error {
 		fmt.Println("    No volumes found")
 	} else {
 		for _, volume := range volumes {
-			fmt.Fprintf(os.Stdout, "    %s\n", volume.Name)
+			volumeSize, err := docker.VolumeSize(volume.Name)
+			if err != nil {
+				return err
+			}
+
+			fmt.Fprintf(os.Stdout, "    %s (%s)\n", volume.Name, console.FormatBytes(volumeSize))
+			totalExportSize += volumeSize
 		}
 	}
 
@@ -79,7 +88,21 @@ func handleList(args []string) error {
 			if len(image.RepoTags) <= 0 {
 				fmt.Fprint(os.Stdout, "    <none>:<none>\n")
 			}
-			fmt.Fprintf(os.Stdout, "    %s\n", image.RepoTags[0])
+
+			method, _ := docker.DetermineTransferMethod(image.RepoTags, image.RepoDigests)
+			switch method {
+			case docker.MethodPull:
+				fmt.Fprintf(os.Stdout, "    %s (pullable)\n", image.RepoTags[0])
+
+			case docker.MethodSaveLoad:
+				inspect, err := docker.ImageInspect(image.ID)
+				if err != nil {
+					return err
+				}
+
+				fmt.Fprintf(os.Stdout, "    %s (>=%s)\n", image.RepoTags[0], console.FormatBytes(inspect.Size))
+				totalExportSize += inspect.Size
+			}
 		}
 	}
 
@@ -101,6 +124,12 @@ func handleList(args []string) error {
 				fmt.Fprintf(os.Stdout, "    %s\n", network.Name)
 			}
 		}
+	}
+
+	if !*quiet {
+		fmt.Println()
+		fmt.Fprintf(os.Stdout, "Estimated size of uncompressed export file: %s\n", console.FormatBytes(totalExportSize))
+		fmt.Println("The above estimate may be noticeably below or above the actual size due to, among other factors, compression.")
 	}
 
 	return nil
