@@ -15,7 +15,7 @@ import (
 
 func handleList(args []string) error {
 	fs := flag.NewFlagSet("list", flag.ExitOnError)
-	quiet := fs.Bool("quiet", false, "Print a quiet output, with the resources seperated by an empty line")
+	estimate_size := fs.Bool("estimate_size", false, "Estimate the size of the final export\nTHIS IS SLOW AND POTENTIALLY INACCURATE")
 	help := fs.Bool("help", false, "Print this message")
 
 	fs.Usage = func() {
@@ -46,12 +46,13 @@ func handleList(args []string) error {
 		return err
 	}
 
-	if !*quiet {
+	if *estimate_size {
 		fmt.Println()
 		exportSize, err := estimateExportSize()
 		if err != nil {
 			return err
 		}
+
 		fmt.Fprintf(os.Stdout, "Estimated size of uncompressed export file: %s\n", exportSize)
 		fmt.Println("The above estimate may be noticeably below or above the actual size due to, among other factors, compression.")
 	}
