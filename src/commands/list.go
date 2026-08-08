@@ -16,6 +16,8 @@ import (
 func handleList(args []string) error {
 	fs := flag.NewFlagSet("list", flag.ContinueOnError)
 	estimate_size := fs.Bool("estimate_size", false, "Estimate the size of the final export\nTHIS IS SLOW AND POTENTIALLY INACCURATE")
+	showVolumeSize := fs.Bool("volume_size", false, "Display the size of the contents for each volume\nTHIS IS SLOW")
+	showImagePullability := fs.Bool("image_pullable", false, "Show if the image will be pullable on the target\nTHIS IS SLOW")
 	help := fs.Bool("help", false, "Print this message")
 
 	fs.Usage = func() {
@@ -37,11 +39,11 @@ func handleList(args []string) error {
 		return err
 	}
 
-	if err := listVolumes(false); err != nil { // TODO: give the user the option to display the size as well
+	if err := listVolumes(*showVolumeSize); err != nil {
 		return err
 	}
 
-	if err := listImages(false); err != nil { // TODO: give the user the option to display the pullability as well
+	if err := listImages(*showImagePullability); err != nil {
 		return err
 	}
 
@@ -57,7 +59,6 @@ func handleList(args []string) error {
 		}
 
 		fmt.Fprintf(os.Stdout, "Estimated size of uncompressed export file: %s\n", exportSize)
-		fmt.Println("The above estimate may be noticeably below or above the actual size due to, among other factors, compression.")
 	}
 
 	return nil
