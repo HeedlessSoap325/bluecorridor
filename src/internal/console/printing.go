@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
+	"text/tabwriter"
 )
 
 const INFO int = 255
@@ -45,4 +47,15 @@ func PrintWithColoredForeground(writer io.Writer, color int, format string, args
 	fmt.Fprintf(writer, "\033[2K\033[38;5;%dm", color)
 	fmt.Fprintf(writer, format, args...)
 	fmt.Fprintf(writer, "\033[0m\n")
+}
+
+func PrintTable(titles []string, rows [][]string, padding int) {
+	writer := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ', 0)
+	fmt.Fprintln(writer, strings.Join(titles, "\t")+"\t")
+
+	for _, row := range rows {
+		fmt.Fprintln(writer, strings.Join(row, "\t")+"\t")
+	}
+
+	writer.Flush()
 }
