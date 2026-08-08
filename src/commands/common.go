@@ -1,6 +1,12 @@
 package commands
 
-import "github.com/moby/moby/client"
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+
+	"github.com/moby/moby/client"
+)
 
 const volumeDirName string = "volumes"
 const metadataFileName string = "metadata.json"
@@ -17,4 +23,24 @@ type dockerState struct {
 	Volumes    []client.VolumeInspectResult    `json:"volumes"`
 	Networks   []client.NetworkInspectResult   `json:"networks"`
 	Containers []client.ContainerInspectResult `json:"containers"`
+}
+
+// Creates a Temporary directory and returns the directory, the volumes directory, as well as the metadata File
+//
+// It is the callers responsibility to cleanup the tmpDir afterwards
+func getTempPaths() (tmpDir string, metadataFile string, volumeDir string, err error) {
+	tmpDir, err = os.MkdirTemp("", "bluecorridor-*")
+	if err != nil {
+		return "", "", "", fmt.Errorf("Error occured while creating temp directory: %s", err)
+	}
+
+	volumeDir = filepath.Join(tmpDir, volumeDirName)
+
+	if err := os.MkdirAll(volumeDir, 0755); err != nil {
+		return "", "", "", fmt.Errorf("Could not create temp volumes directory: %s", err)
+	}
+
+	metadataFile = filepath.Join(tmpDir, metadataFileName)
+
+	return
 }

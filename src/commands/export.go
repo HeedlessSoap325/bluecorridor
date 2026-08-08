@@ -30,13 +30,15 @@ func handleExport(args []string) error {
 		fs.Usage()
 	}
 
-	/// CREATE TEMPORARY DIRECTORY
-	err := os.MkdirAll(*output, 0755) // TODO: Maybe use os.TempDir() here instead of just ssuming that the output folder is empty
+	/// REQUEST TEMPORARY DIRECTORY
+	tmpDir, metadataFile, volumeDir, err := getTempPaths()
 	if err != nil {
-		return fmt.Errorf("Could not create output directory %s: %s", *output, err)
+		return err
 	}
 
-	defer os.RemoveAll(*output) // CLEANUP
+	defer os.RemoveAll(tmpDir) // CLEANUP
+
+	outputFile := fmt.Sprintf("%s.tar.gz", *output)
 
 	/// CREATE METADATA FILE
 	var state dockerState
@@ -49,25 +51,17 @@ func handleExport(args []string) error {
 		return fmt.Errorf("Error occured while creating JSON: %s", err)
 	}
 
-	metadataFile := fmt.Sprintf("%s/%s", *output, metadataFileName)
-	err = os.WriteFile(metadataFile, data, 0644)
-	if err != nil {
+	if err = os.WriteFile(metadataFile, data, 0644); err != nil {
 		return fmt.Errorf("Error occured while creating file %s: %s", metadataFile, err)
 	}
 
 	/// SAVE VOLUMES
-	volumeDir := fmt.Sprintf("%s/%s", *output, volumeDirName)
-	err = os.MkdirAll(volumeDir, 0755)
-	if err != nil {
-		return fmt.Errorf("Could not create volumes directory in output directory %s: %s", *output, err)
+	if err = saveVolumes(state.Volumes, volumeDir); err != nil {
+		return err
 	}
 
-	saveVolumes(state.Volumes, volumeDir)
-
 	/// ASSEMBLE FINAL OUTPUT FILE
-	outputFile := fmt.Sprintf("%s.tar.gz", *output)
-	err = compression.Tar(*output, outputFile)
-	if err != nil {
+	if err = compression.Tar(tmpDir, outputFile); err != nil {
 		return fmt.Errorf("Error occured while creating final tar archive %s: %s", outputFile, err)
 	}
 

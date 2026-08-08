@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"maps"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/heedlesssoap325/bluecorridor/internal/compression"
@@ -36,29 +35,26 @@ func handleImport(args []string) error {
 	}
 
 	/// CREATE TEMPORARY DIRECTORY
-	inputDir := filepath.Base(*file) // TODO: Maybe use os.TempDir() here, instead of hoping that the folder is empty
-
-	err := os.MkdirAll(inputDir, 0755)
+	tmpDir, metadataFile, volumeDir, err := getTempPaths()
 	if err != nil {
-		return fmt.Errorf("Could not create input directory %s: %s", inputDir, err)
+		return err
 	}
 
-	defer os.RemoveAll(inputDir) // CLEANUP
+	defer os.RemoveAll(tmpDir) // CLEANUP
 
 	/// EXTRACT TAR ARCHIVE INTO TEMPORARY DIRECTORY
-	compression.Untar(*file, inputDir)
+	if err := compression.Untar(*file, tmpDir); err != nil {
+		return fmt.Errorf("Error occured while untaring file: %s", err)
+	}
 
 	/// RESTORE DOCKER STATE FROM METADATA FILE
-	metadataFile := fmt.Sprintf("%s/%s", inputDir, metadataFileName)
 	raw, err := os.ReadFile(metadataFile)
 	if err != nil {
 		return fmt.Errorf("Error occured while reading metadata file %s: %s", metadataFile, err)
 	}
 
-	volumeDir := fmt.Sprintf("%s/%s", inputDir, volumeDirName)
-
 	var state dockerState
-	if json.Unmarshal(raw, &state) != nil {
+	if err := json.Unmarshal(raw, &state); err != nil {
 		return fmt.Errorf("Error occured while parsing JSON: %s", err)
 	}
 
@@ -71,7 +67,9 @@ func handleImport(args []string) error {
 	}
 
 	/// RESTORE VOLUME CONTENTS
-	restoreVolumes(state.Volumes, volumeDir)
+	if err:= restoreVolumes(state.Volumes, volumeDir); err != nil {
+		return err
+	}
 
 	return nil
 }
