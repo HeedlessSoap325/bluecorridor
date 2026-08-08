@@ -34,6 +34,7 @@ func handleImport(args []string) error {
 
 	if *help {
 		fs.Usage()
+		return nil
 	}
 
 	/// CREATE TEMPORARY DIRECTORY

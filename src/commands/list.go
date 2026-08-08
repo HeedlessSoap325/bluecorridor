@@ -30,6 +30,7 @@ func handleList(args []string) error {
 
 	if *help {
 		fs.Usage()
+		return nil
 	}
 
 	if err := listContainers(); err != nil {

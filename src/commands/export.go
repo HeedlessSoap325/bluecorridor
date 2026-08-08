@@ -30,6 +30,7 @@ func handleExport(args []string) error {
 
 	if *help {
 		fs.Usage()
+		return nil
 	}
 
 	/// REQUEST TEMPORARY DIRECTORY
