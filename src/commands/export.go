@@ -14,7 +14,7 @@ import (
 
 func handleExport(args []string) error {
 	/// HANDLE FLAGS
-	fs := flag.NewFlagSet("export", flag.ExitOnError)
+	fs := flag.NewFlagSet("export", flag.ContinueOnError)
 	output := fs.String("output", "docker-export", "The path in which to place the export file (noe extension required)")
 	help := fs.Bool("help", false, "Print this message")
 
@@ -24,7 +24,9 @@ func handleExport(args []string) error {
 		fs.PrintDefaults()
 	}
 
-	fs.Parse(args)
+	if err := fs.Parse(args); err != nil {
+		return fmt.Errorf("error occured while parsing flags: %s", err)
+	}
 
 	if *help {
 		fs.Usage()

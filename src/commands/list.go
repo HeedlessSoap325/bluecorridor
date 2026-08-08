@@ -14,7 +14,7 @@ import (
 )
 
 func handleList(args []string) error {
-	fs := flag.NewFlagSet("list", flag.ExitOnError)
+	fs := flag.NewFlagSet("list", flag.ContinueOnError)
 	estimate_size := fs.Bool("estimate_size", false, "Estimate the size of the final export\nTHIS IS SLOW AND POTENTIALLY INACCURATE")
 	help := fs.Bool("help", false, "Print this message")
 
@@ -24,7 +24,9 @@ func handleList(args []string) error {
 		fs.PrintDefaults()
 	}
 
-	fs.Parse(args)
+	if err := fs.Parse(args); err != nil {
+		return fmt.Errorf("error occured while parsing flags: %s", err)
+	}
 
 	if *help {
 		fs.Usage()

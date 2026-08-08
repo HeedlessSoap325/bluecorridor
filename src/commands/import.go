@@ -18,7 +18,7 @@ import (
 
 func handleImport(args []string) error {
 	/// HANDLE FLAGS
-	fs := flag.NewFlagSet("import", flag.ExitOnError)
+	fs := flag.NewFlagSet("import", flag.ContinueOnError)
 	file := fs.String("file", "docker-export.tar.gz", "The file from which to import docker")
 	help := fs.Bool("help", false, "Print this message")
 
@@ -28,7 +28,9 @@ func handleImport(args []string) error {
 		fs.PrintDefaults()
 	}
 
-	fs.Parse(args)
+	if err := fs.Parse(args); err != nil {
+		return fmt.Errorf("error occured while parsing flags: %s", err)
+	}
 
 	if *help {
 		fs.Usage()
