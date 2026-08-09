@@ -9,6 +9,7 @@ import (
 	"github.com/heedlesssoap325/bluecorridor/internal/compression"
 	"github.com/heedlesssoap325/bluecorridor/internal/console"
 	"github.com/heedlesssoap325/bluecorridor/internal/docker"
+	"github.com/moby/moby/api/types/volume"
 	"github.com/moby/moby/client"
 )
 
@@ -49,13 +50,8 @@ func handleExport(args []string) error {
 		return err
 	}
 
-	data, err := json.MarshalIndent(state, "", "    ")
-	if err != nil {
-		return fmt.Errorf("Error occured while creating JSON: %s", err)
-	}
-
-	if err = os.WriteFile(metadataFile, data, 0644); err != nil {
-		return fmt.Errorf("Error occured while creating file %s: %s", metadataFile, err)
+	if err := writeMetadataFile(state, metadataFile); err != nil {
+		return err
 	}
 
 	/// SAVE VOLUMES
@@ -74,75 +70,125 @@ func handleExport(args []string) error {
 func extractDockerState(state *dockerState) error {
 	state.Version = exportVersion
 
+	if err := saveImageMetadata(state); err != nil {
+		return err
+	}
+
+	if err := saveVolumeMetadata(state); err != nil {
+		return err
+	}
+
+	if err := saveNetworkMetadata(state); err != nil {
+		return err
+	}
+
+	if err := saveContainerMetadata(state); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func saveImageMetadata(state *dockerState) error {
 	images, err := docker.ImageList(nil)
 	if err != nil {
 		return err
 	}
 
 	for _, image := range images {
+		imageName := imageName(image)
+		console.PrintWithColoredForeground(os.Stdout, console.INFO, "Saving metadata of image '%s'", imageName)
+
 		inspect, err := docker.ImageInspect(image.ID)
 		if err != nil {
 			return err
 		}
 
 		state.Images = append(state.Images, inspect)
-		console.PrintWithColoredForeground(os.Stdout, console.SUCCESS, "Successfully saved metadata of image '%s'", image.RepoTags[0])
+
+		console.ClearNLinesAndPositionCursorAtStart(1)
+		console.PrintWithColoredForeground(os.Stdout, console.SUCCESS, "Successfully saved metadata of image '%s'", imageName)
 	}
 
+	return nil
+}
+
+func saveVolumeMetadata(state *dockerState) error {
 	volumes, err := docker.VolumeList(nil)
 	if err != nil {
 		return err
 	}
 
 	for _, volume := range volumes {
+		console.PrintWithColoredForeground(os.Stdout, console.INFO, "Saving metadata of volume '%s'", volume.Name)
+
 		inspect, err := docker.VolumeInspect(volume.Name)
 		if err != nil {
 			return err
 		}
 
 		if docker.VolumeAnonymous(volume.Labels) {
-			console.PrintWithColoredForeground(os.Stdout, console.INFO, "Volume '%s' is anonymous, please choose how to handle this:", volume.Name)
-			console.PrintWithColoredForeground(os.Stdout, console.INFO, "    A) Keep volume anonymous and drop data")
-			console.PrintWithColoredForeground(os.Stdout, console.INFO, "    B) Keep volume anonymous and keep data")
-			console.PrintWithColoredForeground(os.Stdout, console.INFO, "    C) Convert to named volume and drop data")
-			console.PrintWithColoredForeground(os.Stdout, console.INFO, "    D) Convert to named volume and keep data")
-			console.PrintWithColoredForeground(os.Stdout, console.INFO, "    E) Abort")
-
-			input := console.Prompt("Choose an option (A/B/C/D/E): ", []string{"A", "B", "C", "D", "E"})
-
-			console.ClearNLinesAndPositionCursorAtStart(7)
-
-			switch input {
-			case "A":
-				inspect.Volume.Labels["dev.heedlesssoap.bluecorridor.volume.dataless"] = ""
-				inspect.Volume.Labels["com.docker.volume.anonymous"] = ""
-			case "B":
-				inspect.Volume.Labels["dev.heedlesssoap.bluecorridor.volume.reference"] = inspect.Volume.Name
-				inspect.Volume.Labels["com.docker.volume.anonymous"] = ""
-			case "C":
-				inspect.Volume.Labels["dev.heedlesssoap.bluecorridor.volume.dataless"] = ""
-				inspect.Volume.Labels["dev.heedlesssoap.bluecorridor.volume.reference"] = inspect.Volume.Name
-				delete(inspect.Volume.Labels, "com.docker.volume.anonymous")
-
-				name := console.Prompt("New volume name: ", []string{})
-				console.ClearNLinesAndPositionCursorAtStart(1)
-				inspect.Volume.Name = name
-			case "D":
-				inspect.Volume.Labels["dev.heedlesssoap.bluecorridor.volume.reference"] = inspect.Volume.Name
-				delete(inspect.Volume.Labels, "com.docker.volume.anonymous")
-
-				name := console.Prompt("New volume name: ", []string{})
-				console.ClearNLinesAndPositionCursorAtStart(1)
-				inspect.Volume.Name = name
-			case "E":
-				return fmt.Errorf("User abort")
+			if err := handleAnonymousVolume(volume, &inspect); err != nil {
+				return err
 			}
 		}
 
 		state.Volumes = append(state.Volumes, inspect)
+
+		console.ClearNLinesAndPositionCursorAtStart(1)
 		console.PrintWithColoredForeground(os.Stdout, console.SUCCESS, "Successfully saved metadata of volume '%s'", inspect.Volume.Name)
 	}
 
+	return nil
+}
+
+func handleAnonymousVolume(vol volume.Volume, inspect *client.VolumeInspectResult) error {
+	switch promptAnonymousVolumeOption(vol) {
+	case "A":
+		inspect.Volume.Labels["dev.heedlesssoap.bluecorridor.volume.dataless"] = ""
+		inspect.Volume.Labels["com.docker.volume.anonymous"] = ""
+	case "B":
+		inspect.Volume.Labels["dev.heedlesssoap.bluecorridor.volume.reference"] = inspect.Volume.Name
+		inspect.Volume.Labels["com.docker.volume.anonymous"] = ""
+	case "C":
+		inspect.Volume.Labels["dev.heedlesssoap.bluecorridor.volume.dataless"] = ""
+		inspect.Volume.Labels["dev.heedlesssoap.bluecorridor.volume.reference"] = inspect.Volume.Name
+		delete(inspect.Volume.Labels, "com.docker.volume.anonymous")
+
+		inspect.Volume.Name = promptAnonymousVolumeNewName()
+	case "D":
+		inspect.Volume.Labels["dev.heedlesssoap.bluecorridor.volume.reference"] = inspect.Volume.Name
+		delete(inspect.Volume.Labels, "com.docker.volume.anonymous")
+
+		inspect.Volume.Name = promptAnonymousVolumeNewName()
+	case "E":
+		return fmt.Errorf("User abort")
+	}
+
+	return nil
+}
+
+func promptAnonymousVolumeOption(vol volume.Volume) (option string) {
+	console.PrintWithColoredForeground(os.Stdout, console.INFO, "Volume '%s' is anonymous, please choose how to handle this:", vol.Name)
+	console.PrintWithColoredForeground(os.Stdout, console.INFO, "    A) Keep volume anonymous and drop data")
+	console.PrintWithColoredForeground(os.Stdout, console.INFO, "    B) Keep volume anonymous and keep data")
+	console.PrintWithColoredForeground(os.Stdout, console.INFO, "    C) Convert to named volume and drop data")
+	console.PrintWithColoredForeground(os.Stdout, console.INFO, "    D) Convert to named volume and keep data")
+	console.PrintWithColoredForeground(os.Stdout, console.INFO, "    E) Abort")
+
+	defer console.ClearNLinesAndPositionCursorAtStart(7)
+
+	option = console.Prompt("Choose an option (A/B/C/D/E): ", []string{"A", "B", "C", "D", "E"})
+	return
+}
+
+func promptAnonymousVolumeNewName() (name string) {
+	name = console.Prompt("New volume name: ", []string{})
+	console.ClearNLinesAndPositionCursorAtStart(1)
+	return
+}
+
+func saveNetworkMetadata(state *dockerState) error {
 	networks, err := docker.NetworkList(nil)
 	if err != nil {
 		return err
@@ -154,28 +200,53 @@ func extractDockerState(state *dockerState) error {
 			continue // Don't export networks "bridge", "host", and "none" as the will always exist on the other device, because they are built-in
 		}
 
+		console.PrintWithColoredForeground(os.Stdout, console.INFO, "Saving metadata of network '%s'", network.Name)
+
 		inspect, err := docker.NetworkInspect(network.ID)
 		if err != nil {
 			return err
 		}
 
 		state.Networks = append(state.Networks, inspect)
+
+		console.ClearNLinesAndPositionCursorAtStart(1)
 		console.PrintWithColoredForeground(os.Stdout, console.SUCCESS, "Successfully saved metadata of network '%s'", network.Name)
 	}
 
+	return nil
+}
+
+func saveContainerMetadata(state *dockerState) error {
 	containers, err := docker.ContainerList(nil)
 	if err != nil {
 		return err
 	}
 
 	for _, container := range containers {
+		console.PrintWithColoredForeground(os.Stdout, console.INFO, "Saving metadata of container '%s'", container.Names[0])
+
 		inspect, err := docker.ContainerInspect(container.ID)
 		if err != nil {
 			return err
 		}
 
 		state.Containers = append(state.Containers, inspect)
-		console.PrintWithColoredForeground(os.Stdout, console.SUCCESS, "Successfully saved metadata of container '%s'", inspect.Container.Name)
+
+		console.ClearNLinesAndPositionCursorAtStart(1)
+		console.PrintWithColoredForeground(os.Stdout, console.SUCCESS, "Successfully saved metadata of container '%s'", container.Names[0])
+	}
+
+	return nil
+}
+
+func writeMetadataFile(state dockerState, metadataFile string) error {
+	data, err := json.MarshalIndent(state, "", "    ")
+	if err != nil {
+		return fmt.Errorf("Error occured while creating JSON: %s", err)
+	}
+
+	if err = os.WriteFile(metadataFile, data, 0644); err != nil {
+		return fmt.Errorf("Error occured while creating file %s: %s", metadataFile, err)
 	}
 
 	return nil
@@ -187,13 +258,7 @@ func saveVolumes(volumes []client.VolumeInspectResult, outputDir string) error {
 			continue // If a volume doesn't have data, it doesn't need to be exported
 		}
 
-		volumeName := volume.Volume.Name
-		saveName := volume.Volume.Name
-
-		if isReference, reference := docker.VolumeReference(volume.Volume.Labels); isReference {
-			volumeName = reference
-			saveName = reference
-		}
+		volumeName, saveName := getVolumeAndSaveNames(volume.Volume)
 
 		console.PrintWithColoredForeground(os.Stdout, console.INFO, "Saving contents of volume '%s'", volumeName)
 
@@ -202,10 +267,21 @@ func saveVolumes(volumes []client.VolumeInspectResult, outputDir string) error {
 			return err
 		}
 
-		console.MoveCursorUpNLines(1)
-		console.ClearCurrentLine()
+		console.ClearNLinesAndPositionCursorAtStart(1)
 		console.PrintWithColoredForeground(os.Stdout, console.SUCCESS, "Successfully saved contents of volume '%s'", volumeName)
 	}
 
 	return nil
+}
+
+func getVolumeAndSaveNames(volume volume.Volume) (volumeName string, saveName string) {
+	volumeName = volume.Name
+	saveName = volume.Name
+
+	if isReference, reference := docker.VolumeReference(volume.Labels); isReference {
+		volumeName = reference
+		saveName = reference
+	}
+
+	return
 }
