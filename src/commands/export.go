@@ -17,6 +17,8 @@ func handleExport(args []string) error {
 	/// HANDLE FLAGS
 	fs := flag.NewFlagSet("export", flag.ContinueOnError)
 	output := fs.String("output", "docker-export", "The path in which to place the export file (noe extension required)")
+	quiet := fs.Bool("quiet", false, "Discard all output except for errors")
+	anonymousVolumeOption := fs.String("anonymous_volume", "", "Specify the dafault option for any anonymous volume\nA) Keep volume anonymous and drop data\nB) Keep volume anonymous and keep data\nC) Convert to named volume and drop data\nD) Convert to named volume and keep data")
 	help := fs.Bool("help", false, "Print this message")
 
 	fs.Usage = func() {
@@ -34,6 +36,11 @@ func handleExport(args []string) error {
 		return nil
 	}
 
+	console.Configure(console.Config{
+		Quiet: *quiet,
+	})
+	defer console.Reset()
+
 	/// REQUEST TEMPORARY DIRECTORY
 	tmpDir, metadataFile, volumeDir, err := getTempPaths()
 	if err != nil {
@@ -46,7 +53,7 @@ func handleExport(args []string) error {
 
 	/// CREATE METADATA FILE
 	var state dockerState
-	if err := extractDockerState(&state); err != nil {
+	if err := extractDockerState(&state, *anonymousVolumeOption); err != nil {
 		return err
 	}
 
@@ -67,14 +74,14 @@ func handleExport(args []string) error {
 	return nil
 }
 
-func extractDockerState(state *dockerState) error {
+func extractDockerState(state *dockerState, anonymousVolumeOption string) error {
 	state.Version = exportVersion
 
 	if err := saveImageMetadata(state); err != nil {
 		return err
 	}
 
-	if err := saveVolumeMetadata(state); err != nil {
+	if err := saveVolumeMetadata(state, anonymousVolumeOption); err != nil {
 		return err
 	}
 
@@ -113,7 +120,7 @@ func saveImageMetadata(state *dockerState) error {
 	return nil
 }
 
-func saveVolumeMetadata(state *dockerState) error {
+func saveVolumeMetadata(state *dockerState, anonymousVolumeOption string) error {
 	volumes, err := docker.VolumeList(nil)
 	if err != nil {
 		return err
@@ -128,7 +135,7 @@ func saveVolumeMetadata(state *dockerState) error {
 		}
 
 		if docker.VolumeAnonymous(volume.Labels) {
-			if err := handleAnonymousVolume(volume, &inspect); err != nil {
+			if err := handleAnonymousVolume(volume, &inspect, anonymousVolumeOption); err != nil {
 				return err
 			}
 		}
@@ -142,8 +149,16 @@ func saveVolumeMetadata(state *dockerState) error {
 	return nil
 }
 
-func handleAnonymousVolume(vol volume.Volume, inspect *client.VolumeInspectResult) error {
-	switch promptAnonymousVolumeOption(vol) {
+func handleAnonymousVolume(vol volume.Volume, inspect *client.VolumeInspectResult, anonymousVolumeOption string) error {
+	option := ""
+	switch anonymousVolumeOption {
+	case "A", "B", "C", "D":
+		option = anonymousVolumeOption
+	default:
+		option = promptAnonymousVolumeOption(vol)
+	}
+
+	switch option {
 	case "A":
 		inspect.Volume.Labels["dev.heedlesssoap.bluecorridor.volume.dataless"] = ""
 		inspect.Volume.Labels["com.docker.volume.anonymous"] = ""
@@ -155,12 +170,12 @@ func handleAnonymousVolume(vol volume.Volume, inspect *client.VolumeInspectResul
 		inspect.Volume.Labels["dev.heedlesssoap.bluecorridor.volume.reference"] = inspect.Volume.Name
 		delete(inspect.Volume.Labels, "com.docker.volume.anonymous")
 
-		inspect.Volume.Name = promptAnonymousVolumeNewName()
+		inspect.Volume.Name = promptAnonymousVolumeNewName(vol)
 	case "D":
 		inspect.Volume.Labels["dev.heedlesssoap.bluecorridor.volume.reference"] = inspect.Volume.Name
 		delete(inspect.Volume.Labels, "com.docker.volume.anonymous")
 
-		inspect.Volume.Name = promptAnonymousVolumeNewName()
+		inspect.Volume.Name = promptAnonymousVolumeNewName(vol)
 	case "E":
 		return fmt.Errorf("User abort")
 	}
@@ -178,12 +193,14 @@ func promptAnonymousVolumeOption(vol volume.Volume) (option string) {
 
 	defer console.ClearNLinesAndPositionCursorAtStart(7)
 
-	option = console.Prompt("Choose an option (A/B/C/D/E): ", []string{"A", "B", "C", "D", "E"})
+	prompt := fmt.Sprintf("Choose an option for volume '%s' (A/B/C/D/E): ", vol.Name)
+	option = console.Prompt(prompt, []string{"A", "B", "C", "D", "E"})
 	return
 }
 
-func promptAnonymousVolumeNewName() (name string) {
-	name = console.Prompt("New volume name: ", []string{})
+func promptAnonymousVolumeNewName(vol volume.Volume) (name string) {
+	prompt := fmt.Sprintf("Choose a new name for volume '%s': ", vol.Name)
+	name = console.Prompt(prompt, []string{})
 	console.ClearNLinesAndPositionCursorAtStart(1)
 	return
 }
