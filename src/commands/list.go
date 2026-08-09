@@ -223,7 +223,7 @@ func listNetworks() error {
 }
 
 func estimateExportSize() (string, error) {
-	console.PrintWithColoredForeground(os.Stdout, console.INFO, "Estimating export size...")
+	console.Printlnf(console.INFO, "Estimating export size...")
 	var totalExportSize int64 = 0
 
 	volumes, err := docker.VolumeList(nil)

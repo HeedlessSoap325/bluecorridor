@@ -2,17 +2,38 @@ package console
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"strings"
 	"text/tabwriter"
 )
 
-const INFO int = 255
-const WARNING int = 214
-const ERROR int = 196
-const SUCCESS int = 40
-const GRAY int = 245
+type Level int
+
+const (
+	INFO       Level = 255
+	WARNING    Level = 214
+	ERROR      Level = 196
+	SUCCESS    Level = 40
+	BACKGROUND Level = 245
+)
+
+type Config struct {
+	Quiet bool
+}
+
+var defaultConfig Config = Config{
+	Quiet: false,
+}
+
+var config Config
+
+func Configure(conf Config) {
+	config = conf
+}
+
+func Reset() {
+	config = defaultConfig
+}
 
 func MoveCursorUpNLines(lines int) {
 	if lines <= 0 {
@@ -39,17 +60,26 @@ func ClearNLinesAndPositionCursorAtStart(lines int) {
 	MoveCursorUpNLines(lines)
 }
 
-func PrintWithColoredForeground(writer io.Writer, color int, format string, args ...any) {
-	if color < 0 || color > 255 {
+func Printlnf(level Level, format string, args ...any) {
+	if config.Quiet && level != ERROR {
 		return
 	}
 
-	fmt.Fprintf(writer, "\033[2K\033[38;5;%dm", color)
+	writer := os.Stdout
+	if level == ERROR {
+		writer = os.Stderr
+	}
+
+	fmt.Fprintf(writer, "\033[2K\033[38;5;%dm", level)
 	fmt.Fprintf(writer, format, args...)
 	fmt.Fprintf(writer, "\033[0m\n")
 }
 
 func PrintTable(titles []string, rows [][]string, padding int) {
+	if config.Quiet {
+		return
+	}
+
 	writer := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ', 0)
 	fmt.Fprintln(writer, strings.Join(titles, "\t")+"\t")
 

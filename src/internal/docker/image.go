@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
 	"strings"
 
 	"github.com/heedlesssoap325/bluecorridor/internal/console"
@@ -119,7 +118,7 @@ func imagePullPrettyprint(pullResponse client.ImagePullResponse) {
 		// Print the actual MEssage
 		for _, line := range window {
 			console.ClearCurrentLine()
-			console.PrintWithColoredForeground(os.Stdout, console.GRAY, "    %s", line)
+			console.Printlnf(console.BACKGROUND, "    %s", line)
 		}
 
 		printed = len(window)

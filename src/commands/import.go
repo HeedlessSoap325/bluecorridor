@@ -70,7 +70,7 @@ func handleImport(args []string) error {
 	}
 
 	/// RESTORE VOLUME CONTENTS
-	if err:= restoreVolumes(state.Volumes, volumeDir); err != nil {
+	if err := restoreVolumes(state.Volumes, volumeDir); err != nil {
 		return err
 	}
 
@@ -80,11 +80,11 @@ func handleImport(args []string) error {
 func importDockerState(state *dockerState) error {
 	for _, inspect := range state.Images {
 		if len(inspect.RepoTags) <= 0 {
-			fmt.Fprintln(os.Stderr, "UNIMPLEMENTED: Image had no RepoTags")
+			console.Printlnf(console.WARNING, "UNIMPLEMENTED: Image had no RepoTags")
 			continue
 		}
 
-		fmt.Fprintf(os.Stdout, "Pulling Image '%s'\n", inspect.RepoTags[0])
+		console.Printlnf(console.INFO, "Pulling Image '%s'", inspect.RepoTags[0])
 
 		// TODO: The code assumes the images are pullable!
 		// In the future, the code should check Image availability and otherwise fall back on the image save in the export
@@ -93,9 +93,8 @@ func importDockerState(state *dockerState) error {
 			return err
 		}
 
-		console.MoveCursorUpNLines(1)
-		console.ClearCurrentLine() // Clear the "Pulling Image ..." line
-		console.PrintWithColoredForeground(os.Stdout, console.SUCCESS, "Successfully pulled image '%s'", inspect.RepoTags[0])
+		console.ClearNLinesAndPositionCursorAtStart(1) // Clear the "Pulling Image ..." line
+		console.Printlnf(console.SUCCESS, "Successfully pulled image '%s'", inspect.RepoTags[0])
 	}
 
 	volumeMap := make(map[string]string)
@@ -110,7 +109,7 @@ func importDockerState(state *dockerState) error {
 			continue                     // Don't do anything else here
 		}
 
-		fmt.Fprintf(os.Stdout, "Re-Creating volume '%s'\n", inspect.Volume.Name)
+		console.Printlnf(console.INFO, "Re-Creating volume '%s'", inspect.Volume.Name)
 
 		var clusterVolumeSpec *volume.ClusterVolumeSpec
 		if inspect.Volume.ClusterVolume != nil {
@@ -138,19 +137,18 @@ func importDockerState(state *dockerState) error {
 
 		volumeMap[originalName] = volume.Name // Map the original name present in the exports to the new name present on the host
 
-		console.MoveCursorUpNLines(1)
-		console.ClearCurrentLine() // Clear "Creating volume ..." line
-		console.PrintWithColoredForeground(os.Stdout, console.SUCCESS, "Successfully created volume '%s'", volume.Name)
+		console.ClearNLinesAndPositionCursorAtStart(1) // Clear "Creating volume ..." line
+		console.Printlnf(console.SUCCESS, "Successfully created volume '%s'", volume.Name)
 	}
 
 	networkNameToID := make(map[string]string)
 	for _, inspect := range state.Networks {
 		if docker.NetworkNameReserved(inspect.Network.Name) {
-			console.PrintWithColoredForeground(os.Stdout, console.WARNING, "Network '%s' is a built-in network. Can't use that name. Skiping", inspect.Network.Name)
+			console.Printlnf(console.WARNING, "Network '%s' is a built-in network. Can't use that name. Skiping", inspect.Network.Name)
 			continue
 		}
 
-		fmt.Fprintf(os.Stdout, "Creating network '%s'\n", inspect.Network.Name)
+		console.Printlnf(console.INFO, "Creating network '%s'", inspect.Network.Name)
 
 		id, err := docker.NetworkCreate(inspect.Network.Name, client.NetworkCreateOptions{
 			Driver:     inspect.Network.Driver,
@@ -173,9 +171,8 @@ func importDockerState(state *dockerState) error {
 
 		networkNameToID[inspect.Network.Name] = id
 
-		console.MoveCursorUpNLines(1)
-		console.ClearCurrentLine() // Clear "Creating network ..." line
-		console.PrintWithColoredForeground(os.Stdout, console.SUCCESS, "Successfully created network '%s': %s", inspect.Network.Name, id)
+		console.ClearNLinesAndPositionCursorAtStart(1) // Clear "Creating network ..." line
+		console.Printlnf(console.SUCCESS, "Successfully created network '%s': %s", inspect.Network.Name, id)
 	}
 
 	for _, inspect := range state.Containers {
@@ -229,7 +226,7 @@ func importDockerState(state *dockerState) error {
 			return err
 		}
 
-		console.PrintWithColoredForeground(os.Stdout, console.SUCCESS, "Successfully created container '%s': %s", containerName, id)
+		console.Printlnf(console.SUCCESS, "Successfully created container '%s': %s", containerName, id)
 
 		inspect, err := docker.ContainerInspect(id)
 		if err != nil {
@@ -291,16 +288,15 @@ func restoreVolumes(volumeInspects []client.VolumeInspectResult, inDir string) e
 			saveName = reference
 		}
 
-		fmt.Fprintf(os.Stdout, "Restoring contents of volume '%s'\n", saveName)
+		console.Printlnf(console.INFO, "Restoring contents of volume '%s'", saveName)
 
 		err := docker.VolumeRestore(volumeName, saveName, inDir)
 		if err != nil {
 			return err
 		}
 
-		console.MoveCursorUpNLines(1)
-		console.ClearCurrentLine() // Clear "Restoring contents of volume ..." line
-		console.PrintWithColoredForeground(os.Stdout, console.SUCCESS, "Successfully restored contents of volume '%s'", saveName)
+		console.ClearNLinesAndPositionCursorAtStart(1) // Clear "Restoring contents of volume ..." line
+		console.Printlnf(console.SUCCESS, "Successfully restored contents of volume '%s'", saveName)
 	}
 
 	return nil

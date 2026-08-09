@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/heedlesssoap325/bluecorridor/internal/console"
 	"github.com/moby/moby/client"
 )
 
@@ -21,13 +22,11 @@ func InitializeDockerClient() error {
 	}
 
 	if value, _ := os.LookupEnv("DOCKER_HOST"); value == "" {
-		fmt.Print("\033[38;5;214m")
-		fmt.Println("[WARNING] Your environment does not appear to provide the DOCKER_HOST environment variable")
-		fmt.Println("[WARNING] The DOCKER_HOST is used to connect to the right docker socket, without it you may see different resources than you expect or none at all")
-		fmt.Printf("[WARNING] The default DOCKER_HOST value that will be used is '%s'\n", client.DefaultDockerHost)
-		fmt.Println("[WARNING] To avoid this warning, please export DOCKER_HOST in your environment")
-		fmt.Println("[WARNING] If you are unsure on which docker host is the right one, you can run 'docker context ls' to see your current and all other available hosts")
-		fmt.Print("\033[0m")
+		console.Printlnf(console.WARNING, "[WARNING] Your environment does not appear to provide the DOCKER_HOST environment variable")
+		console.Printlnf(console.WARNING, "[WARNING] The DOCKER_HOST is used to connect to the right docker socket, without it you may see different resources than you expect or none at all")
+		console.Printlnf(console.WARNING, "[WARNING] The default DOCKER_HOST value that will be used is '%s'", client.DefaultDockerHost)
+		console.Printlnf(console.WARNING, "[WARNING] To avoid this warning, please export DOCKER_HOST in your environment")
+		console.Printlnf(console.WARNING, "[WARNING] If you are unsure on which docker host is the right one, you can run 'docker context ls' to see your current and all other available hosts")
 	}
 
 	var err error

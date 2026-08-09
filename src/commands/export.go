@@ -97,7 +97,7 @@ func saveImageMetadata(state *dockerState) error {
 
 	for _, image := range images {
 		imageName := imageName(image)
-		console.PrintWithColoredForeground(os.Stdout, console.INFO, "Saving metadata of image '%s'", imageName)
+		console.Printlnf(console.INFO, "Saving metadata of image '%s'", imageName)
 
 		inspect, err := docker.ImageInspect(image.ID)
 		if err != nil {
@@ -107,7 +107,7 @@ func saveImageMetadata(state *dockerState) error {
 		state.Images = append(state.Images, inspect)
 
 		console.ClearNLinesAndPositionCursorAtStart(1)
-		console.PrintWithColoredForeground(os.Stdout, console.SUCCESS, "Successfully saved metadata of image '%s'", imageName)
+		console.Printlnf(console.SUCCESS, "Successfully saved metadata of image '%s'", imageName)
 	}
 
 	return nil
@@ -120,7 +120,7 @@ func saveVolumeMetadata(state *dockerState) error {
 	}
 
 	for _, volume := range volumes {
-		console.PrintWithColoredForeground(os.Stdout, console.INFO, "Saving metadata of volume '%s'", volume.Name)
+		console.Printlnf(console.INFO, "Saving metadata of volume '%s'", volume.Name)
 
 		inspect, err := docker.VolumeInspect(volume.Name)
 		if err != nil {
@@ -136,7 +136,7 @@ func saveVolumeMetadata(state *dockerState) error {
 		state.Volumes = append(state.Volumes, inspect)
 
 		console.ClearNLinesAndPositionCursorAtStart(1)
-		console.PrintWithColoredForeground(os.Stdout, console.SUCCESS, "Successfully saved metadata of volume '%s'", inspect.Volume.Name)
+		console.Printlnf(console.SUCCESS, "Successfully saved metadata of volume '%s'", inspect.Volume.Name)
 	}
 
 	return nil
@@ -169,12 +169,12 @@ func handleAnonymousVolume(vol volume.Volume, inspect *client.VolumeInspectResul
 }
 
 func promptAnonymousVolumeOption(vol volume.Volume) (option string) {
-	console.PrintWithColoredForeground(os.Stdout, console.INFO, "Volume '%s' is anonymous, please choose how to handle this:", vol.Name)
-	console.PrintWithColoredForeground(os.Stdout, console.INFO, "    A) Keep volume anonymous and drop data")
-	console.PrintWithColoredForeground(os.Stdout, console.INFO, "    B) Keep volume anonymous and keep data")
-	console.PrintWithColoredForeground(os.Stdout, console.INFO, "    C) Convert to named volume and drop data")
-	console.PrintWithColoredForeground(os.Stdout, console.INFO, "    D) Convert to named volume and keep data")
-	console.PrintWithColoredForeground(os.Stdout, console.INFO, "    E) Abort")
+	console.Printlnf(console.INFO, "Volume '%s' is anonymous, please choose how to handle this:", vol.Name)
+	console.Printlnf(console.INFO, "    A) Keep volume anonymous and drop data")
+	console.Printlnf(console.INFO, "    B) Keep volume anonymous and keep data")
+	console.Printlnf(console.INFO, "    C) Convert to named volume and drop data")
+	console.Printlnf(console.INFO, "    D) Convert to named volume and keep data")
+	console.Printlnf(console.INFO, "    E) Abort")
 
 	defer console.ClearNLinesAndPositionCursorAtStart(7)
 
@@ -200,7 +200,7 @@ func saveNetworkMetadata(state *dockerState) error {
 			continue // Don't export networks "bridge", "host", and "none" as the will always exist on the other device, because they are built-in
 		}
 
-		console.PrintWithColoredForeground(os.Stdout, console.INFO, "Saving metadata of network '%s'", network.Name)
+		console.Printlnf(console.INFO, "Saving metadata of network '%s'", network.Name)
 
 		inspect, err := docker.NetworkInspect(network.ID)
 		if err != nil {
@@ -210,7 +210,7 @@ func saveNetworkMetadata(state *dockerState) error {
 		state.Networks = append(state.Networks, inspect)
 
 		console.ClearNLinesAndPositionCursorAtStart(1)
-		console.PrintWithColoredForeground(os.Stdout, console.SUCCESS, "Successfully saved metadata of network '%s'", network.Name)
+		console.Printlnf(console.SUCCESS, "Successfully saved metadata of network '%s'", network.Name)
 	}
 
 	return nil
@@ -223,7 +223,7 @@ func saveContainerMetadata(state *dockerState) error {
 	}
 
 	for _, container := range containers {
-		console.PrintWithColoredForeground(os.Stdout, console.INFO, "Saving metadata of container '%s'", container.Names[0])
+		console.Printlnf(console.INFO, "Saving metadata of container '%s'", container.Names[0])
 
 		inspect, err := docker.ContainerInspect(container.ID)
 		if err != nil {
@@ -233,7 +233,7 @@ func saveContainerMetadata(state *dockerState) error {
 		state.Containers = append(state.Containers, inspect)
 
 		console.ClearNLinesAndPositionCursorAtStart(1)
-		console.PrintWithColoredForeground(os.Stdout, console.SUCCESS, "Successfully saved metadata of container '%s'", container.Names[0])
+		console.Printlnf(console.SUCCESS, "Successfully saved metadata of container '%s'", container.Names[0])
 	}
 
 	return nil
@@ -260,7 +260,7 @@ func saveVolumes(volumes []client.VolumeInspectResult, outputDir string) error {
 
 		volumeName, saveName := getVolumeAndSaveNames(volume.Volume)
 
-		console.PrintWithColoredForeground(os.Stdout, console.INFO, "Saving contents of volume '%s'", volumeName)
+		console.Printlnf(console.INFO, "Saving contents of volume '%s'", volumeName)
 
 		err := docker.VolumeSave(volumeName, saveName, outputDir)
 		if err != nil {
@@ -268,7 +268,7 @@ func saveVolumes(volumes []client.VolumeInspectResult, outputDir string) error {
 		}
 
 		console.ClearNLinesAndPositionCursorAtStart(1)
-		console.PrintWithColoredForeground(os.Stdout, console.SUCCESS, "Successfully saved contents of volume '%s'", volumeName)
+		console.Printlnf(console.SUCCESS, "Successfully saved contents of volume '%s'", volumeName)
 	}
 
 	return nil

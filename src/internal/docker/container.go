@@ -2,7 +2,6 @@ package docker
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/heedlesssoap325/bluecorridor/internal/console"
 	"github.com/moby/moby/api/types/container"
@@ -68,9 +67,9 @@ func ContainerRemove(containerID string) error {
 }
 
 func printContainerCreationWarnings(name string, warnings []string) {
-	console.PrintWithColoredForeground(os.Stdout, console.WARNING, "[WARNING] Warnings occured while creating container '%s'", name)
+	console.Printlnf(console.WARNING, "[WARNING] Warnings occured while creating container '%s'", name)
 	for _, warning := range warnings {
-		console.PrintWithColoredForeground(os.Stdout, console.WARNING, "    %s", warning)
+		console.Printlnf(console.WARNING, "    %s", warning)
 	}
 }
 
