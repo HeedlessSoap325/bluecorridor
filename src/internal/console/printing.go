@@ -36,6 +36,10 @@ func Reset() {
 }
 
 func MoveCursorUpNLines(lines int) {
+	if config.Quiet {
+		return
+	}
+	
 	if lines <= 0 {
 		return
 	}
@@ -44,10 +48,18 @@ func MoveCursorUpNLines(lines int) {
 }
 
 func ClearCurrentLine() {
+	if config.Quiet {
+		return
+	}
+
 	fmt.Fprintf(os.Stdout, "\033[2K")
 }
 
 func ClearNLinesAndPositionCursorAtStart(lines int) {
+	if config.Quiet {
+		return
+	}
+	
 	if lines <= 0 {
 		return
 	}
