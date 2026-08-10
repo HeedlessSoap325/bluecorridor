@@ -139,8 +139,11 @@ func importVolumes(state *dockerState) (map[string]string, error) {
 		}
 
 		if docker.VolumeAnonymous(volumeInspect.Volume.Labels) {
-			volumeMap[originalName] = "" // This will cause docker to create a new truly anonymous volume when the container gets created
-			continue                     // Don't do anything else here
+			// When creating the container, the old mounts will be updated and each old mount name will be maped to the new mount name.
+			// To create a anonymous volume, the name the old volume will be mapped to must be empty to force docker to create a anonymous volume.
+			// In a later step, the names of the new anonymous volumes will be back-patched in the state
+			volumeMap[originalName] = ""
+			continue
 		}
 
 		console.Printlnf(console.INFO, "Re-Creating volume '%s'", volumeInspect.Volume.Name)
@@ -223,6 +226,9 @@ func importContainers(state *dockerState, volumeMap map[string]string, networkNa
 	for _, containerInspect := range state.Containers {
 		containerName := strings.TrimPrefix(containerInspect.Container.Name, "/")
 
+		// This updates all container mounts.
+		// This has to be done because the export allows te user to potentially alter anonymous volumes and convert them to named volumes.
+		// Simply using the export would cause the container to rereate a new anonymous volume instead of using the newly created named volume.
 		anonymousMounts, err := updateContainerMounts(&containerInspect, volumeMap)
 		if err != nil {
 			return err
@@ -249,6 +255,8 @@ func importContainers(state *dockerState, volumeMap map[string]string, networkNa
 
 		// This searches for all newly created anonymous volumes (identified by their destination)
 		// and then replaces the old name from the export with the name of the newly created truly anonymous volume
+		// This is important, because it is possible that the user chose to persist the data in a anonymous volume.
+		// To be able to do this, the restoreVolume function needs the name of the new anonymous volume.
 		patchAnonymousVolumes(state, anonymousMounts, newContainerInspect.Container.Mounts)
 
 		// If the client or daemon version were below 1.44, passing multiple networks for container creation would result in a error or wrong configuration of the container
