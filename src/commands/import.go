@@ -11,13 +11,14 @@ import (
 	"github.com/heedlesssoap325/bluecorridor/internal/compression"
 	"github.com/heedlesssoap325/bluecorridor/internal/console"
 	"github.com/heedlesssoap325/bluecorridor/internal/docker"
+	"github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/api/types/mount"
+	"github.com/moby/moby/api/types/network"
 	"github.com/moby/moby/api/types/volume"
 	"github.com/moby/moby/client"
 )
 
 func handleImport(args []string) error {
-	/// HANDLE FLAGS
 	fs := flag.NewFlagSet("import", flag.ContinueOnError)
 	file := fs.String("file", "docker-export.tar.gz", "The file from which to import docker")
 	help := fs.Bool("help", false, "Print this message")
@@ -37,39 +38,26 @@ func handleImport(args []string) error {
 		return nil
 	}
 
-	/// CREATE TEMPORARY DIRECTORY
 	tmpDir, metadataFile, volumeDir, err := getTempPaths()
 	if err != nil {
 		return err
 	}
 
-	defer os.RemoveAll(tmpDir) // CLEANUP
+	defer os.RemoveAll(tmpDir)
 
-	/// EXTRACT TAR ARCHIVE INTO TEMPORARY DIRECTORY
 	if err := compression.Untar(*file, tmpDir); err != nil {
 		return fmt.Errorf("Error occured while untaring file: %s", err)
 	}
 
-	/// RESTORE DOCKER STATE FROM METADATA FILE
-	raw, err := os.ReadFile(metadataFile)
-	if err != nil {
-		return fmt.Errorf("Error occured while reading metadata file %s: %s", metadataFile, err)
-	}
-
 	var state dockerState
-	if err := json.Unmarshal(raw, &state); err != nil {
-		return fmt.Errorf("Error occured while parsing JSON: %s", err)
-	}
-
-	if state.Version != exportVersion {
-		return fmt.Errorf("Incompatible metadata versions. Export: %s, this programm: %s\nThe file provided is either to new or to old for this programm", state.Version, exportVersion)
+	if err := readAndValidateMetadataFile(metadataFile, &state); err != nil {
+		return err
 	}
 
 	if err := importDockerState(&state); err != nil {
 		return err
 	}
 
-	/// RESTORE VOLUME CONTENTS
 	if err := restoreVolumes(state.Volumes, volumeDir); err != nil {
 		return err
 	}
@@ -77,62 +65,101 @@ func handleImport(args []string) error {
 	return nil
 }
 
+func readAndValidateMetadataFile(metadataFile string, state *dockerState) error {
+	raw, err := os.ReadFile(metadataFile)
+	if err != nil {
+		return fmt.Errorf("Error occured while reading metadata file %s: %s", metadataFile, err)
+	}
+
+	if err := json.Unmarshal(raw, &state); err != nil {
+		return fmt.Errorf("Error occured while parsing JSON: %s", err)
+	}
+
+	if state.Version != exportVersion {
+		return fmt.Errorf("Incompatible metadata versions. Export: %s, this program: %s\nThe file provided is either to new or to old for this program", state.Version, exportVersion)
+	}
+
+	return nil
+}
+
 func importDockerState(state *dockerState) error {
-	for _, inspect := range state.Images {
-		if len(inspect.RepoTags) <= 0 {
+	// During import, state is progressively rewritten to contain identifiers assigned by the destination Docker daemon.
+	if err := importImages(state); err != nil {
+		return err
+	}
+
+	volumeMap, err := importVolumes(state)
+	if err != nil {
+		return err
+	}
+
+	networkNameToID, err := importNetworks(state)
+	if err != nil {
+		return err
+	}
+
+	if err := importContainers(state, volumeMap, networkNameToID); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func importImages(state *dockerState) error {
+	for _, imageInspect := range state.Images {
+		if len(imageInspect.RepoTags) == 0 {
 			console.Printlnf(console.WARNING, "UNIMPLEMENTED: Image had no RepoTags")
 			continue
 		}
 
-		console.Printlnf(console.INFO, "Pulling Image '%s'", inspect.RepoTags[0])
+		console.Printlnf(console.INFO, "Pulling Image '%s'", imageInspect.RepoTags[0])
 
 		// TODO: The code assumes the images are pullable!
 		// In the future, the code should check Image availability and otherwise fall back on the image save in the export
-		err := docker.ImagePull(inspect.RepoTags[0], true)
+		err := docker.ImagePull(imageInspect.RepoTags[0], true)
 		if err != nil {
 			return err
 		}
 
 		console.ClearNLinesAndPositionCursorAtStart(1) // Clear the "Pulling Image ..." line
-		console.Printlnf(console.SUCCESS, "Successfully pulled image '%s'", inspect.RepoTags[0])
+		console.Printlnf(console.SUCCESS, "Successfully pulled image '%s'", imageInspect.RepoTags[0])
 	}
 
+	return nil
+}
+
+// importVolumes recreates named volumes and records mappings from exported volume names to their names on the target Docker host.
+// Anonymous volumes are intentionally left for Docker to create when the containers are created.
+func importVolumes(state *dockerState) (map[string]string, error) {
 	volumeMap := make(map[string]string)
-	for _, inspect := range state.Volumes {
-		originalName := inspect.Volume.Name
-		if isReference, reference := docker.VolumeReference(inspect.Volume.Labels); isReference {
+	for _, volumeInspect := range state.Volumes {
+		originalName := volumeInspect.Volume.Name
+		if isReference, reference := docker.VolumeReference(volumeInspect.Volume.Labels); isReference {
 			originalName = reference
 		}
 
-		if docker.VolumeAnonymous(inspect.Volume.Labels) {
-			volumeMap[originalName] = "" // This will cause docker to create a new truely anonymous volume when the container gets created
+		if docker.VolumeAnonymous(volumeInspect.Volume.Labels) {
+			volumeMap[originalName] = "" // This will cause docker to create a new truly anonymous volume when the container gets created
 			continue                     // Don't do anything else here
 		}
 
-		console.Printlnf(console.INFO, "Re-Creating volume '%s'", inspect.Volume.Name)
+		console.Printlnf(console.INFO, "Re-Creating volume '%s'", volumeInspect.Volume.Name)
 
 		var clusterVolumeSpec *volume.ClusterVolumeSpec
-		if inspect.Volume.ClusterVolume != nil {
-			clusterVolumeSpec = &inspect.Volume.ClusterVolume.Spec
+		if volumeInspect.Volume.ClusterVolume != nil {
+			clusterVolumeSpec = &volumeInspect.Volume.ClusterVolume.Spec
 		}
 
-		volumeLabels := make(map[string]string, len(inspect.Volume.Labels))
-		maps.Copy(volumeLabels, inspect.Volume.Labels)
-
-		// Delete labels assigned by bluecorridor for metadata file only, so they don't get re-created
-		delete(volumeLabels, "dev.heedlesssoap.bluecorridor.volume.dataless")
-		delete(volumeLabels, "dev.heedlesssoap.bluecorridor.volume.reference")
-
 		volume, err := docker.VolumeCreate(client.VolumeCreateOptions{
-			Name:              inspect.Volume.Name,
-			Driver:            inspect.Volume.Driver,
-			DriverOpts:        inspect.Volume.Options,
-			Labels:            volumeLabels,
+			Name:              volumeInspect.Volume.Name,
+			Driver:            volumeInspect.Volume.Driver,
+			DriverOpts:        volumeInspect.Volume.Options,
+			Labels:            cleanupVolumeLabels(volumeInspect.Volume.Labels),
 			ClusterVolumeSpec: clusterVolumeSpec,
 		})
 
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		volumeMap[originalName] = volume.Name // Map the original name present in the exports to the new name present on the host
@@ -141,82 +168,69 @@ func importDockerState(state *dockerState) error {
 		console.Printlnf(console.SUCCESS, "Successfully created volume '%s'", volume.Name)
 	}
 
+	return volumeMap, nil
+}
+
+func cleanupVolumeLabels(labels map[string]string) map[string]string {
+	volumeLabels := make(map[string]string, len(labels))
+	maps.Copy(volumeLabels, labels)
+
+	delete(volumeLabels, "dev.heedlesssoap.bluecorridor.volume.dataless")
+	delete(volumeLabels, "dev.heedlesssoap.bluecorridor.volume.reference")
+
+	return volumeLabels
+}
+
+func importNetworks(state *dockerState) (map[string]string, error) {
 	networkNameToID := make(map[string]string)
-	for _, inspect := range state.Networks {
-		if docker.NetworkNameReserved(inspect.Network.Name) {
-			console.Printlnf(console.WARNING, "Network '%s' is a built-in network. Can't use that name. Skiping", inspect.Network.Name)
+	for _, networkInspect := range state.Networks {
+		if docker.NetworkNameReserved(networkInspect.Network.Name) {
+			console.Printlnf(console.WARNING, "Network '%s' is a built-in network. Can't use that name. Skipping", networkInspect.Network.Name)
 			continue
 		}
 
-		console.Printlnf(console.INFO, "Creating network '%s'", inspect.Network.Name)
+		console.Printlnf(console.INFO, "Creating network '%s'", networkInspect.Network.Name)
 
-		id, err := docker.NetworkCreate(inspect.Network.Name, client.NetworkCreateOptions{
-			Driver:     inspect.Network.Driver,
-			Scope:      inspect.Network.Scope,
-			EnableIPv4: &inspect.Network.EnableIPv4,
-			EnableIPv6: &inspect.Network.EnableIPv6,
-			IPAM:       &inspect.Network.IPAM,
-			Internal:   inspect.Network.Internal,
-			Attachable: inspect.Network.Attachable,
-			Ingress:    inspect.Network.Ingress,
-			ConfigOnly: inspect.Network.ConfigOnly,
-			ConfigFrom: inspect.Network.ConfigFrom.Network,
-			Options:    inspect.Network.Options,
-			Labels:     inspect.Network.Labels,
+		id, err := docker.NetworkCreate(networkInspect.Network.Name, client.NetworkCreateOptions{
+			Driver:     networkInspect.Network.Driver,
+			Scope:      networkInspect.Network.Scope,
+			EnableIPv4: &networkInspect.Network.EnableIPv4,
+			EnableIPv6: &networkInspect.Network.EnableIPv6,
+			IPAM:       &networkInspect.Network.IPAM,
+			Internal:   networkInspect.Network.Internal,
+			Attachable: networkInspect.Network.Attachable,
+			Ingress:    networkInspect.Network.Ingress,
+			ConfigOnly: networkInspect.Network.ConfigOnly,
+			ConfigFrom: networkInspect.Network.ConfigFrom.Network,
+			Options:    networkInspect.Network.Options,
+			Labels:     networkInspect.Network.Labels,
 		})
 
+		if err != nil {
+			return nil, err
+		}
+
+		networkNameToID[networkInspect.Network.Name] = id
+
+		console.ClearNLinesAndPositionCursorAtStart(1) // Clear "Creating network ..." line
+		console.Printlnf(console.SUCCESS, "Successfully created network '%s': %s", networkInspect.Network.Name, id)
+	}
+
+	return networkNameToID, nil
+}
+
+func importContainers(state *dockerState, volumeMap map[string]string, networkNameToID map[string]string) error {
+	for _, containerInspect := range state.Containers {
+		containerName := strings.TrimPrefix(containerInspect.Container.Name, "/")
+
+		anonymousMounts, err := updateContainerMounts(&containerInspect, volumeMap)
 		if err != nil {
 			return err
 		}
 
-		networkNameToID[inspect.Network.Name] = id
-
-		console.ClearNLinesAndPositionCursorAtStart(1) // Clear "Creating network ..." line
-		console.Printlnf(console.SUCCESS, "Successfully created network '%s': %s", inspect.Network.Name, id)
-	}
-
-	for _, inspect := range state.Containers {
-		containerName, _ := strings.CutPrefix(inspect.Container.Name, "/")
-
-		anonymousMounts := make(map[string]string)
-		newMounts := make([]mount.Mount, 0, len(inspect.Container.Mounts))
-
-		// Override the containers old mounts to consider the potential changes with anonymous volumes
-		for _, mountPoint := range inspect.Container.Mounts {
-			switch mountPoint.Type {
-			case mount.TypeVolume:
-				newName, ok := volumeMap[mountPoint.Name] // old name (or old anonymous ID) -> new volume name (or empty for anonymous volumes)
-				if !ok {
-					return fmt.Errorf("no mapping found for volume %q (dest %s)", mountPoint.Name, mountPoint.Destination)
-				}
-				if newName == "" {
-					anonymousMounts[mountPoint.Name] = mountPoint.Destination
-				}
-
-				newMounts = append(newMounts, mount.Mount{
-					Type:   mount.TypeVolume,
-					Source: newName, // new volume name (docker will create a anonymous volume when this is empty)
-					Target: mountPoint.Destination,
-				})
-			case mount.TypeBind:
-				// keep as-is
-				newMounts = append(newMounts, mount.Mount{
-					Type:     mount.TypeBind,
-					Source:   mountPoint.Source,
-					Target:   mountPoint.Destination,
-					ReadOnly: !mountPoint.RW,
-				})
-			default:
-				return fmt.Errorf("UNSUPPORTED: volume of type %s can't be re-created (yet)", mountPoint.Type)
-			}
-		}
-
-		inspect.Container.HostConfig.Mounts = newMounts
-		inspect.Container.HostConfig.Binds = nil // clear legacy Binds so it doesn't fight with Mounts
-
 		id, err := docker.ContainerCreate(client.ContainerCreateOptions{
-			Config:           inspect.Container.Config,
-			HostConfig:       inspect.Container.HostConfig,
+			Config:           containerInspect.Container.Config,
+			HostConfig:       containerInspect.Container.HostConfig,
 			NetworkingConfig: nil, // Connect to networks later
 			Platform:         nil,
 			Name:             containerName,
@@ -228,47 +242,105 @@ func importDockerState(state *dockerState) error {
 
 		console.Printlnf(console.SUCCESS, "Successfully created container '%s': %s", containerName, id)
 
-		inspect, err := docker.ContainerInspect(id)
+		newContainerInspect, err := docker.ContainerInspect(id)
 		if err != nil {
 			return err
 		}
 
 		// This searches for all newly created anonymous volumes (identified by their destination)
-		// and then replaces the old name from the export with the name of the newly created truely anonymous volume
-		for originalName, dest := range anonymousMounts {
-			for _, mount := range inspect.Container.Mounts {
-				if mount.Destination == dest {
-					for idx := range state.Volumes {
-						if state.Volumes[idx].Volume.Name == originalName {
-							state.Volumes[idx].Volume.Name = mount.Name
-						}
+		// and then replaces the old name from the export with the name of the newly created truly anonymous volume
+		patchAnonymousVolumes(state, anonymousMounts, newContainerInspect.Container.Mounts)
+
+		// If the client or daemon version were below 1.44, passing multiple networks for container creation would result in a error or wrong configuration of the container
+		// This approach of iterating all networks the container was connected to and re-connecting them works with all versions, and is therefore more compatible, even though probably never actually necessary
+		if err := connectContainerNetworks(newContainerInspect.Container.NetworkSettings.Networks, networkNameToID, id); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func updateContainerMounts(containerInspect *client.ContainerInspectResult, volumeMap map[string]string) (map[string]string, error) {
+	anonymousMounts := make(map[string]string)
+	newMounts := make([]mount.Mount, 0, len(containerInspect.Container.Mounts))
+
+	// Docker assigns a new name when an anonymous volume is created.
+	// Track the mount destination so we can replace the exported volume name with the newly assigned name after container creation.
+	for _, mountPoint := range containerInspect.Container.Mounts {
+		switch mountPoint.Type {
+		case mount.TypeVolume:
+			newName, ok := volumeMap[mountPoint.Name] // old name (or old anonymous ID) -> new volume name (or empty for anonymous volumes)
+			if !ok {
+				return map[string]string{}, fmt.Errorf("no mapping found for volume %q (dest %s)", mountPoint.Name, mountPoint.Destination)
+			}
+			if newName == "" {
+				anonymousMounts[mountPoint.Name] = mountPoint.Destination
+			}
+
+			newMounts = append(newMounts, mount.Mount{
+				Type:   mount.TypeVolume,
+				Source: newName, // new volume name (docker will create a anonymous volume when this is empty)
+				Target: mountPoint.Destination,
+			})
+		case mount.TypeBind:
+			// keep as-is
+			newMounts = append(newMounts, mount.Mount{
+				Type:     mount.TypeBind,
+				Source:   mountPoint.Source,
+				Target:   mountPoint.Destination,
+				ReadOnly: !mountPoint.RW,
+			})
+		default:
+			return map[string]string{}, fmt.Errorf("UNSUPPORTED: volume of type %s can't be re-created (yet)", mountPoint.Type)
+		}
+	}
+
+	containerInspect.Container.HostConfig.Mounts = newMounts
+	containerInspect.Container.HostConfig.Binds = nil // clear legacy Binds so it doesn't fight with Mounts
+
+	return anonymousMounts, nil
+}
+
+func patchAnonymousVolumes(state *dockerState, anonymousMounts map[string]string, containerMounts []container.MountPoint) {
+	// Go through all the anonymous Mounts that docker should have created after the container creation
+	for originalName, dest := range anonymousMounts {
+		// Go through all new mounts of the container
+		for _, mount := range containerMounts {
+			// When the destinations match, the current mount must be the new anonymous volume that docker created
+			if mount.Destination == dest {
+				// Replace the name of the old anonymous volume in the state with the new one
+				for idx := range state.Volumes {
+					if state.Volumes[idx].Volume.Name == originalName {
+						state.Volumes[idx].Volume.Name = mount.Name
 					}
 				}
 			}
 		}
+	}
+}
 
-		// If the client or daemon version were below 1.44, passing multiple networks for container creation would result in a error or wrong configuration of the container
-		// This approach of itterating all networks the container was connected to and re-connecting them works with all versions, and is herefor more compatible, even tough prbably never actually necessary
-		for networkName, endpointSettings := range inspect.Container.NetworkSettings.Networks {
-			newNetworkID, ok := networkNameToID[networkName]
-			if !ok {
-				// e.g. it was a reserved/skipped network like "bridge"/"host"/"none"
-				newNetworkID = networkName // fall back to connecting by name
-			}
+func connectContainerNetworks(networks map[string]*network.EndpointSettings, networkNameToID map[string]string, containerID string) error {
+	for networkName, endpointSettings := range networks {
+		newNetworkID, ok := networkNameToID[networkName]
+		if !ok {
+			// e.g. it was a reserved/skipped network like "bridge"/"host"/"none"
+			newNetworkID = networkName // fall back to connecting by name
+		}
 
-			// Strip stale identifiers from the old host before reusing the struct
-			// these will be filled in by the docker deamon once the container starts up
-			endpointSettings.NetworkID = ""
-			endpointSettings.EndpointID = ""
+		// EndpointSettings comes from the exported Docker state and contains IDs belonging to the source daemon. 
+		// Those IDs are invalid on the destination daemon, so clear them before reconnecting.
+		// These fields will be resolved by the docker daemon when the container starts up for the first time
+		endpointSettings.NetworkID = ""
+		endpointSettings.EndpointID = ""
 
-			err := docker.NetworkConnect(newNetworkID, client.NetworkConnectOptions{
-				Container:      id,
-				EndpointConfig: endpointSettings,
-			})
+		err := docker.NetworkConnect(newNetworkID, client.NetworkConnectOptions{
+			Container:      containerID,
+			EndpointConfig: endpointSettings,
+		})
 
-			if err != nil {
-				return err
-			}
+		if err != nil {
+			return err
 		}
 	}
 
