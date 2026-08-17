@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -97,7 +97,7 @@ func VolumeSave(volumeName string, saveName string, outDir string) error {
 	defer reader.Content.Close()
 
 	fileName := fmt.Sprintf("%s.tar", saveName)
-	out, err := os.Create(path.Join(outDir, fileName))
+	out, err := os.Create(filepath.Join(outDir, fileName))
 
 	if err != nil {
 		return fmt.Errorf("Error occured while creating File '%s.tar' to %s: %s", saveName, outDir, err)
@@ -143,7 +143,7 @@ func VolumeRestore(volumeName string, saveName string, inDir string) error {
 	defer ContainerRemove(id)
 
 	fileName := fmt.Sprintf("%s.tar", saveName)
-	buffer, err := os.ReadFile(path.Join(inDir, fileName))
+	buffer, err := os.ReadFile(filepath.Join(inDir, fileName))
 	if err != nil {
 		return fmt.Errorf("Error occured while reading file %s/%s.tar: %s", inDir, saveName, err)
 	}

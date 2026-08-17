@@ -6,7 +6,7 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/heedlesssoap325/bluecorridor/internal/console"
@@ -282,7 +282,7 @@ func ImageSave(imageID string, outDir string) error {
 	defer res.Close()
 
 	fileName := fmt.Sprintf("%s.tar", strings.ReplaceAll(imageID, ":", "_")) // Replace : with _ for Windows
-	out, err := os.Create(path.Join(outDir, fileName))
+	out, err := os.Create(filepath.Join(outDir, fileName))
 	if err != nil {
 		return fmt.Errorf("Error occured while creating File '%s.tar' to %s: %s", imageID, outDir, err)
 	}
@@ -299,7 +299,7 @@ func ImageSave(imageID string, outDir string) error {
 
 func ImageLoad(imageID string, inDir string) error {
 	fileName := fmt.Sprintf("%s.tar", strings.ReplaceAll(imageID, ":", "_")) // Replace : with _ for Windows
-	file, err := os.OpenFile(path.Join(inDir, fileName), os.O_RDONLY, 438)
+	file, err := os.OpenFile(filepath.Join(inDir, fileName), os.O_RDONLY, 438)
 	if err != nil {
 		return fmt.Errorf("Error occured while reading file '%s.tar' from %s: %s", imageID, inDir, err)
 	}
