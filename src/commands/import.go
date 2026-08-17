@@ -38,7 +38,7 @@ func handleImport(args []string) error {
 		return nil
 	}
 
-	tmpDir, metadataFile, volumeDir, err := getTempPaths()
+	tmpDir, metadataFile, volumeDir, imageDir, err := getTempPaths()
 	if err != nil {
 		return err
 	}
@@ -51,6 +51,11 @@ func handleImport(args []string) error {
 
 	var state dockerState
 	if err := readAndValidateMetadataFile(metadataFile, &state); err != nil {
+		return err
+	}
+
+	// Images have to be present when creating containers so this has to be called before importing the docker-state
+	if err := loadImages(state.Images, imageDir); err != nil {
 		return err
 	}
 
@@ -68,7 +73,7 @@ func handleImport(args []string) error {
 func readAndValidateMetadataFile(metadataFile string, state *dockerState) error {
 	raw, err := os.ReadFile(metadataFile)
 	if err != nil {
-		return fmt.Errorf("Error occured while reading metadata file %s: %s", metadataFile, err)
+		return fmt.Errorf("Error occured while reading imageMetadata file %s: %s", metadataFile, err)
 	}
 
 	if err := json.Unmarshal(raw, &state); err != nil {
@@ -76,7 +81,7 @@ func readAndValidateMetadataFile(metadataFile string, state *dockerState) error 
 	}
 
 	if state.Version != exportVersion {
-		return fmt.Errorf("Incompatible metadata versions. Export: %s, this program: %s\nThe file provided is either to new or to old for this program", state.Version, exportVersion)
+		return fmt.Errorf("Incompatible imageMetadata versions. Export: %s, this program: %s\nThe file provided is either to new or to old for this program", state.Version, exportVersion)
 	}
 
 	return nil
@@ -107,37 +112,24 @@ func importDockerState(state *dockerState) error {
 
 func importImages(state *dockerState) error {
 	for _, imageMetadata := range state.Images {
-		switch imageMetadata.Method {
-		case docker.MethodPull:
-			if err:= importImage(imageMetadata); err != nil {
-				return err
-			}
-		case docker.MethodSaveLoad:
-			if err := loadImage(imageMetadata); err != nil {
-				return err
-			}
+		if imageMetadata.Method != docker.MethodPull {
+			// This function is only concerned with pulling Images
+			// Images that have to be loaded should have already been loaded at this point
+			continue
 		}
+
+		console.Printlnf(console.INFO, "Pulling Image '%s'", imageMetadata.Name)
+
+		err := docker.ImagePull(imageMetadata.RepoTag, true)
+		if err != nil {
+			return err
+		}
+
+		console.ClearNLinesAndPositionCursorAtStart(1) // Clear the "Pulling Image ..." line
+		console.Printlnf(console.SUCCESS, "Successfully pulled image '%s'", imageMetadata.Name)
 	}
 
 	return nil
-}
-
-func importImage(metadata imageMetadata) error {
-	console.Printlnf(console.INFO, "Pulling Image '%s'", metadata.Name)
-
-	err := docker.ImagePull(metadata.RepoTag, true)
-	if err != nil {
-		return err
-	}
-
-	console.ClearNLinesAndPositionCursorAtStart(1) // Clear the "Pulling Image ..." line
-	console.Printlnf(console.SUCCESS, "Successfully pulled image '%s'", metadata.Name)
-
-	return nil
-}
-
-func loadImage(metadata imageMetadata) error {
-	return fmt.Errorf("loadImage: UNIMPLEMENTED ")
 }
 
 // importVolumes recreates named volumes and records mappings from exported volume names to their names on the target Docker host.
@@ -389,6 +381,25 @@ func restoreVolumes(volumeInspects []client.VolumeInspectResult, inDir string) e
 
 		console.ClearNLinesAndPositionCursorAtStart(1) // Clear "Restoring contents of volume ..." line
 		console.Printlnf(console.SUCCESS, "Successfully restored contents of volume '%s'", saveName)
+	}
+
+	return nil
+}
+
+func loadImages(images []imageMetadata, inDir string) error {
+	for _, imageMetadata := range images {
+		if imageMetadata.Method != docker.MethodSaveLoad {
+			continue // This function is only concerned with loading Images
+		}
+
+		console.Printlnf(console.INFO, "Loading non-pullable image '%s'", imageMetadata.Name)
+
+		if err := docker.ImageLoad(imageMetadata.ID, inDir); err != nil {
+			return err
+		}
+
+		console.ClearNLinesAndPositionCursorAtStart(1) // Clear "Loading non-pullable image ..." line
+		console.Printlnf(console.SUCCESS, "Successfully loaded non-pullable image '%s'", imageMetadata.Name)
 	}
 
 	return nil

@@ -42,7 +42,7 @@ func handleExport(args []string) error {
 	defer console.Reset()
 
 	/// REQUEST TEMPORARY DIRECTORY
-	tmpDir, metadataFile, volumeDir, err := getTempPaths()
+	tmpDir, metadataFile, volumeDir, imageDir, err := getTempPaths()
 	if err != nil {
 		return err
 	}
@@ -63,6 +63,10 @@ func handleExport(args []string) error {
 
 	/// SAVE VOLUMES
 	if err = saveVolumes(state.Volumes, volumeDir); err != nil {
+		return err
+	}
+
+	if err := saveImages(state.Images, imageDir); err != nil {
 		return err
 	}
 
@@ -315,4 +319,23 @@ func getVolumeAndSaveNames(volume volume.Volume) (volumeName string, saveName st
 	}
 
 	return
+}
+
+func saveImages(images []imageMetadata, outputDir string) error {
+	for _, imageMetadata := range images {
+		if imageMetadata.Method != docker.MethodSaveLoad {
+			continue // This function is only concerned with saving Images
+		}
+
+		console.Printlnf(console.INFO, "Saving non-pullable image '%s'", imageMetadata.Name)
+
+		if err := docker.ImageSave(imageMetadata.ID, outputDir); err != nil {
+			return err
+		}
+
+		console.ClearNLinesAndPositionCursorAtStart(1)
+		console.Printlnf(console.SUCCESS, "Successfully saved non-pullable image '%s'", imageMetadata.Name)
+	}
+
+	return nil
 }
