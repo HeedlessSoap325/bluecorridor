@@ -107,20 +107,37 @@ func importDockerState(state *dockerState) error {
 
 func importImages(state *dockerState) error {
 	for _, imageMetadata := range state.Images {
-		console.Printlnf(console.INFO, "Pulling Image '%s'", imageMetadata.Name)
-
-		// TODO: The code assumes the images are pullable!
-		// In the future, the code should check Image availability and otherwise fall back on the image save in the export
-		err := docker.ImagePull(imageMetadata.RepoTag, true)
-		if err != nil {
-			return err
+		switch imageMetadata.Method {
+		case docker.MethodPull:
+			if err:= importImage(imageMetadata); err != nil {
+				return err
+			}
+		case docker.MethodSaveLoad:
+			if err := loadImage(imageMetadata); err != nil {
+				return err
+			}
 		}
-
-		console.ClearNLinesAndPositionCursorAtStart(1) // Clear the "Pulling Image ..." line
-		console.Printlnf(console.SUCCESS, "Successfully pulled image '%s'", imageMetadata.Name)
 	}
 
 	return nil
+}
+
+func importImage(metadata imageMetadata) error {
+	console.Printlnf(console.INFO, "Pulling Image '%s'", metadata.Name)
+
+	err := docker.ImagePull(metadata.RepoTag, true)
+	if err != nil {
+		return err
+	}
+
+	console.ClearNLinesAndPositionCursorAtStart(1) // Clear the "Pulling Image ..." line
+	console.Printlnf(console.SUCCESS, "Successfully pulled image '%s'", metadata.Name)
+
+	return nil
+}
+
+func loadImage(metadata imageMetadata) error {
+	return fmt.Errorf("loadImage: UNIMPLEMENTED ")
 }
 
 // importVolumes recreates named volumes and records mappings from exported volume names to their names on the target Docker host.

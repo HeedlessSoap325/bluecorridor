@@ -111,12 +111,21 @@ func saveImageMetadata(state *dockerState) error {
 			return err
 		}
 
-		state.Images = append(state.Images, imageMetadata{
-			// TODO: actually get the method here and then set ID / RepoTag
+		imageMetadata := imageMetadata{
 			Name: imageName,
-			Method: docker.MethodPull, 
-			RepoTag: inspect.RepoTags[0],
-		})
+		}
+
+		method, repoTag := docker.DetermineTransferMethod(inspect.RepoTags, inspect.RepoDigests)
+		imageMetadata.Method = method
+
+		switch method {
+		case docker.MethodPull:
+			imageMetadata.RepoTag = repoTag
+		case docker.MethodSaveLoad:
+			imageMetadata.ID = inspect.ID
+		}
+
+		state.Images = append(state.Images, imageMetadata)
 
 		console.ClearNLinesAndPositionCursorAtStart(1)
 		console.Printlnf(console.SUCCESS, "Successfully saved metadata of image '%s'", imageName)
