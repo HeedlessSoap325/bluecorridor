@@ -3,7 +3,9 @@ package docker
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/heedlesssoap325/bluecorridor/internal/console"
@@ -268,4 +270,46 @@ func ImageSize(imageID string) (int64, error) {
 	}
 
 	return totalSize, nil
+}
+
+func ImageSave(imageID string, outDir string) error {
+	res, err := dockerClient.ImageSave(ctx, []string{imageID})
+	if err != nil {
+		return fmt.Errorf("Error occured while saving image '%s': %s", imageID, err)
+	}
+
+	defer res.Close()
+
+	out, err := os.Create(fmt.Sprintf("%s/%s.tar", outDir, imageID))
+	if err != nil {
+		return fmt.Errorf("Error occured while creating File '%s.tar' to %s: %s", imageID, outDir, err)
+	}
+
+	defer out.Close()
+
+	_, err = io.Copy(out, res)
+	if err != nil {
+		return fmt.Errorf("Error occured while copying tar archive: %s", err)
+	}
+
+	return nil
+}
+
+func ImageLoad(imageID string, inDir string) error {
+	fileNmae := fmt.Sprintf("%s/%s.tar", inDir, imageID)
+	file, err := os.OpenFile(fileNmae, os.O_RDONLY, 438)
+	if err != nil {
+		return fmt.Errorf("Error occured while reading file '%s.tar' from %s: %s", imageID, inDir, err)
+	}
+
+	defer file.Close()
+
+	res, err := dockerClient.ImageLoad(ctx, file, client.ImageLoadWithQuiet(true))
+	if err != nil {
+		return fmt.Errorf("Error occured while loading image '%s': %s", imageID, err)
+	}
+
+	defer res.Close()
+
+	return nil
 }
