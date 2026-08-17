@@ -106,23 +106,18 @@ func importDockerState(state *dockerState) error {
 }
 
 func importImages(state *dockerState) error {
-	for _, imageInspect := range state.Images {
-		if len(imageInspect.RepoTags) == 0 {
-			console.Printlnf(console.WARNING, "UNIMPLEMENTED: Image had no RepoTags")
-			continue
-		}
-
-		console.Printlnf(console.INFO, "Pulling Image '%s'", imageInspect.RepoTags[0])
+	for _, imageMetadata := range state.Images {
+		console.Printlnf(console.INFO, "Pulling Image '%s'", imageMetadata.Name)
 
 		// TODO: The code assumes the images are pullable!
 		// In the future, the code should check Image availability and otherwise fall back on the image save in the export
-		err := docker.ImagePull(imageInspect.RepoTags[0], true)
+		err := docker.ImagePull(imageMetadata.RepoTag, true)
 		if err != nil {
 			return err
 		}
 
 		console.ClearNLinesAndPositionCursorAtStart(1) // Clear the "Pulling Image ..." line
-		console.Printlnf(console.SUCCESS, "Successfully pulled image '%s'", imageInspect.RepoTags[0])
+		console.Printlnf(console.SUCCESS, "Successfully pulled image '%s'", imageMetadata.Name)
 	}
 
 	return nil
@@ -336,7 +331,7 @@ func connectContainerNetworks(networks map[string]*network.EndpointSettings, net
 			newNetworkID = networkName // fall back to connecting by name
 		}
 
-		// EndpointSettings comes from the exported Docker state and contains IDs belonging to the source daemon. 
+		// EndpointSettings comes from the exported Docker state and contains IDs belonging to the source daemon.
 		// Those IDs are invalid on the destination daemon, so clear them before reconnecting.
 		// These fields will be resolved by the docker daemon when the container starts up for the first time
 		endpointSettings.NetworkID = ""

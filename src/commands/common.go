@@ -5,21 +5,36 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/heedlesssoap325/bluecorridor/internal/docker"
 	"github.com/moby/moby/client"
 )
 
 const volumeDirName string = "volumes"
 const metadataFileName string = "metadata.json"
 
-const exportVersion string = "0.5"
+const exportVersion string = "0.6"
 
 // NOTE: The simple JSON File (deprecated in 61d84f2b9064d6bab3e5ef315bf359690a6f4243) is not considered a propper export format and therefore not given its own version.
 // Versions:
-//    0.5: tar archive, compressed with gz, metadata.json in root, volumecontents are stored in a tarball in the volumes directory
+//
+//	0.5: tar archive, compressed with gz, metadata.json in root, volumecontents are stored in a tarball in the volumes directory
+
+type imageMetadata struct {
+	Name   string                `json:"name"`
+	Method docker.TransferMethod `json:"method"`
+
+	// Only available if Method is equal to MethodPull
+	//
+	// This will represent the name of the image save file
+	ID string `json:"id,omitempty"`
+
+	// Only available if Method is equal to MethodSaveLoad
+	RepoTag string `json:"repotag,omitempty"`
+}
 
 type dockerState struct {
 	Version    string                          `json:"version"`
-	Images     []client.ImageInspectResult     `json:"images"`
+	Images     []imageMetadata                 `json:"images"`
 	Volumes    []client.VolumeInspectResult    `json:"volumes"`
 	Networks   []client.NetworkInspectResult   `json:"networks"`
 	Containers []client.ContainerInspectResult `json:"containers"`
