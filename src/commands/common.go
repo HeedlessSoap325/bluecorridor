@@ -11,6 +11,7 @@ import (
 
 const volumeDirName string = "volumes"
 const imageDirName string = "images"
+const bindsDirName string = "binds"
 const metadataFileName string = "metadata.json"
 
 const exportVersion string = "1.0"
@@ -38,33 +39,46 @@ type imageMetadata struct {
 	RepoTag string `json:"repotag,omitempty"`
 }
 
+type bindMount struct {
+	ID     string `json:"id"`
+	Source string `json:"source"` // original Source as reported by Docker
+	IsDir  bool   `json:"isDir"`
+}
+
 type dockerState struct {
 	Version    string                          `json:"version"`
 	Images     []imageMetadata                 `json:"images"`
 	Volumes    []client.VolumeInspectResult    `json:"volumes"`
 	Networks   []client.NetworkInspectResult   `json:"networks"`
 	Containers []client.ContainerInspectResult `json:"containers"`
+	BindMounts []bindMount                     `json:"bindmounts"`
 }
 
 // Creates a Temporary directory and returns the directory, the volumes directory, as well as the metadata File
 //
 // It is the callers responsibility to cleanup the tmpDir afterwards
-func getTempPaths() (tmpDir string, metadataFile string, volumeDir string, imageDir string, err error) {
+func getTempPaths() (tmpDir string, metadataFile string, volumeDir string, imageDir string, bindsDir string, err error) {
 	tmpDir, err = os.MkdirTemp("", "bluecorridor-*")
 	if err != nil {
-		return "", "", "", "", fmt.Errorf("Error occured while creating temp directory: %s", err)
+		return "", "", "", "", "", fmt.Errorf("Error occured while creating temp directory: %s", err)
 	}
 
 	volumeDir = filepath.Join(tmpDir, volumeDirName)
 
 	if err := os.MkdirAll(volumeDir, 0755); err != nil {
-		return "", "", "", "", fmt.Errorf("Could not create temp volumes directory: %s", err)
+		return "", "", "", "", "", fmt.Errorf("Could not create temp volumes directory: %s", err)
 	}
 
 	imageDir = filepath.Join(tmpDir, imageDirName)
 
 	if err := os.MkdirAll(imageDir, 0755); err != nil {
-		return "", "", "", "", fmt.Errorf("Could not create temp images directory: %s", err)
+		return "", "", "", "", "", fmt.Errorf("Could not create temp images directory: %s", err)
+	}
+
+	bindsDir = filepath.Join(tmpDir, bindsDirName)
+
+	if err := os.MkdirAll(bindsDir, 0755); err != nil {
+		return "", "", "", "", "", fmt.Errorf("Could not create temp binds directory: %s", err)
 	}
 
 	metadataFile = filepath.Join(tmpDir, metadataFileName)

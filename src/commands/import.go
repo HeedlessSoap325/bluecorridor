@@ -38,7 +38,7 @@ func handleImport(args []string) error {
 		return nil
 	}
 
-	tmpDir, metadataFile, volumeDir, imageDir, err := getTempPaths()
+	tmpDir, metadataFile, volumeDir, imageDir, _, err := getTempPaths()
 	if err != nil {
 		return err
 	}
