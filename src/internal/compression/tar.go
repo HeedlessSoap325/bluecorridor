@@ -3,9 +3,11 @@ package compression
 import (
 	"archive/tar"
 	"compress/gzip"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 func Tar(srcDir, tarFile string) error {
@@ -36,7 +38,7 @@ func Tar(srcDir, tarFile string) error {
             return err
         }
 
-        header.Name = relPath
+        header.Name = filepath.ToSlash(relPath)
 
         if err := tw.WriteHeader(header); err != nil {
             return err
@@ -81,7 +83,13 @@ func Untar(tarFile, dest string) error {
             return err
         }
 
-        target := filepath.Join(dest, hdr.Name)
+        name := filepath.FromSlash(hdr.Name)
+        target := filepath.Join(dest, name)
+
+        // zip-slip quard
+        if !strings.HasPrefix(target, filepath.Clean(dest)+string(os.PathSeparator)) {
+            return fmt.Errorf("illegal file path in tar: %s", hdr.Name)
+        }
 
         switch hdr.Typeflag {
         case tar.TypeDir:
