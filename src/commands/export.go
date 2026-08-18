@@ -2,6 +2,7 @@ package commands
 
 import (
 	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -280,12 +281,11 @@ func saveContainerMetadata(state *dockerState) error {
 		for _, mnt := range inspect.Container.Mounts {
 			switch mnt.Type {
 			case mount.TypeBind:
-				hash := sha256.New()
-				hash.Write([]byte(mnt.Source))
+				sum := sha256.Sum256([]byte(mnt.Destination))
+				id := hex.EncodeToString(sum[:])
 
-				id := hash.Sum(nil)
 				state.BindMounts = append(state.BindMounts, bindMount{
-					ID:     string(id),
+					ID:     id,
 					Source: mnt.Source,
 					IsDir:  false, // unknown at this point
 				})
