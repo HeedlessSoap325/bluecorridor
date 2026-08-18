@@ -88,11 +88,17 @@ func Untar(tarFile, dest string) error {
 
         // zip-slip quard
         if !strings.HasPrefix(target, filepath.Clean(dest)+string(os.PathSeparator)) {
+            if hdr.Name == "." {
+                continue
+            }
             return fmt.Errorf("illegal file path in tar: %s", hdr.Name)
         }
 
         switch hdr.Typeflag {
         case tar.TypeDir:
+            if hdr.Name == "." {
+                continue
+            }
             if err := os.MkdirAll(target, os.FileMode(hdr.Mode)); err != nil {
                 return err
             }
