@@ -35,8 +35,6 @@ func handleList(args []string) error {
 		return nil
 	}
 
-	docker.ImageSave("sha256:06cad38a5d9f5d24b4d83d86def30795d5e4b757fedbf5281172b576dedcd941", "/home/mathis/Downloads")
-
 	if err := listContainers(); err != nil {
 		return err
 	}
