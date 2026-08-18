@@ -127,6 +127,7 @@ func saveImageMetadata(state *dockerState) error {
 			imageMetadata.RepoTag = repoTag
 		case docker.MethodSaveLoad:
 			imageMetadata.ID = inspect.ID
+			imageMetadata.RepoTags = inspect.RepoTags
 		}
 
 		state.Images = append(state.Images, imageMetadata)
@@ -329,7 +330,7 @@ func saveImages(images []imageMetadata, outputDir string) error {
 
 		console.Printlnf(console.INFO, "Saving non-pullable image '%s'", imageMetadata.Name)
 
-		if err := docker.ImageSave(imageMetadata.ID, outputDir); err != nil {
+		if err := docker.ImageSave(imageMetadata.ID, imageMetadata.RepoTags, outputDir); err != nil {
 			return err
 		}
 

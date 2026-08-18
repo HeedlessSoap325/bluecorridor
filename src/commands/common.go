@@ -24,12 +24,17 @@ type imageMetadata struct {
 	Name   string                `json:"name"`
 	Method docker.TransferMethod `json:"method"`
 
-	// Only available if Method is equal to MethodPull
+	// Only available if Method is equal to MethodSaveLoad
 	//
 	// This will represent the name of the image save file
 	ID string `json:"id,omitempty"`
 
 	// Only available if Method is equal to MethodSaveLoad
+	//
+	// This contains the original repoTags of the image
+	RepoTags []string `json:"repotags,omitempty"`
+
+	// Only available if Method is equal to MethodPull
 	RepoTag string `json:"repotag,omitempty"`
 }
 

@@ -273,10 +273,10 @@ func ImageSize(imageID string) (int64, error) {
 	return totalSize, nil
 }
 
-func ImageSave(imageID string, outDir string) error {
-	res, err := dockerClient.ImageSave(ctx, []string{imageID})
+func ImageSave(imageID string, imageRefs []string, outDir string) error {
+	res, err := dockerClient.ImageSave(ctx, imageRefs)
 	if err != nil {
-		return fmt.Errorf("Error occured while saving image '%s': %s", imageID, err)
+		return fmt.Errorf("Error occured while saving image '%s': %s", imageID, err) // imageRef = "myrepo/myimage:tag"
 	}
 
 	defer res.Close()
