@@ -72,5 +72,5 @@ jobs:
         with:
           tag_name: latest
           files: dist/*
-          generate_release_notes: true
+          generate_release_notes: false
           draft: true
