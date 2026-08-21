@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"maps"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/heedlesssoap325/bluecorridor/internal/compression"
@@ -38,7 +39,7 @@ func handleImport(args []string) error {
 		return nil
 	}
 
-	tmpDir, metadataFile, volumeDir, imageDir, _, err := getTempPaths()
+	tmpDir, metadataFile, volumeDir, imageDir, bindsDir, err := getTempPaths()
 	if err != nil {
 		return err
 	}
@@ -56,6 +57,10 @@ func handleImport(args []string) error {
 
 	// Images have to be present when creating containers so this has to be called before importing the docker-state
 	if err := loadImages(state.Images, imageDir); err != nil {
+		return err
+	}
+
+	if err := restoreBindMountData(&state, bindsDir); err != nil {
 		return err
 	}
 
@@ -233,7 +238,7 @@ func importContainers(state *dockerState, volumeMap map[string]string, networkNa
 		// This updates all container mounts.
 		// This has to be done because the export allows te user to potentially alter anonymous volumes and convert them to named volumes.
 		// Simply using the export would cause the container to rereate a new anonymous volume instead of using the newly created named volume.
-		anonymousMounts, err := updateContainerMounts(&containerInspect, volumeMap)
+		anonymousMounts, err := updateContainerMounts(&containerInspect, volumeMap, state.BindMounts)
 		if err != nil {
 			return err
 		}
@@ -273,7 +278,7 @@ func importContainers(state *dockerState, volumeMap map[string]string, networkNa
 	return nil
 }
 
-func updateContainerMounts(containerInspect *client.ContainerInspectResult, volumeMap map[string]string) (map[string]string, error) {
+func updateContainerMounts(containerInspect *client.ContainerInspectResult, volumeMap map[string]string, bindMounts []bindMount) (map[string]string, error) {
 	anonymousMounts := make(map[string]string)
 	newMounts := make([]mount.Mount, 0, len(containerInspect.Container.Mounts))
 
@@ -296,10 +301,17 @@ func updateContainerMounts(containerInspect *client.ContainerInspectResult, volu
 				Target: mountPoint.Destination,
 			})
 		case mount.TypeBind:
-			// keep as-is
+			// update the source to the newly created folders on the target, or keep as-is
+			newSource := mountPoint.Source
+			for _, mnt := range bindMounts {
+				if mountPoint.Source == mnt.Source {
+					newSource = mnt.NewSource
+				}
+			}
+
 			newMounts = append(newMounts, mount.Mount{
 				Type:     mount.TypeBind,
-				Source:   mountPoint.Source,
+				Source:   newSource,
 				Target:   mountPoint.Destination,
 				ReadOnly: !mountPoint.RW,
 			})
@@ -403,4 +415,52 @@ func loadImages(images []imageMetadata, inDir string) error {
 	}
 
 	return nil
+}
+
+func restoreBindMountData(state *dockerState, inDir string) error {
+	wd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("error getting working directory: %s", err)
+	}
+
+	bindsTargetDir := filepath.Join(wd, "docker_bind_mounts")
+
+	if err := os.MkdirAll(bindsTargetDir, 0o755); err != nil {
+		return fmt.Errorf("error creating folder: %s", err)
+	}
+
+	for i := range state.BindMounts {
+		mnt := &state.BindMounts[i]
+		// Copy all the files from the export into the newly created folder
+		srcRoot := filepath.Join(inDir, mnt.ID)
+
+		dstRoot := filepath.Join(bindsTargetDir, mnt.ID)
+		if err := os.MkdirAll(dstRoot, 0o755); err != nil {
+			return fmt.Errorf("error creating folder: %s", err)
+		}
+
+		if err := copyDir(srcRoot, dstRoot); err != nil {
+			return err
+		}
+
+		if mnt.IsDir {
+			mnt.NewSource = dstRoot
+		} else {
+			mnt.NewSource = filepath.Join(dstRoot, lastPathComponent(mnt.Source))
+		}
+	}
+
+	return nil
+}
+
+// lastPathComponent returns the final segment of a path,
+// regardless of whether it uses '/' or '\' (single or doubled) as separator.
+func lastPathComponent(path string) string {
+	fields := strings.FieldsFunc(path, func(r rune) bool {
+		return r == '/' || r == '\\'
+	})
+	if len(fields) == 0 {
+		return ""
+	}
+	return fields[len(fields)-1]
 }

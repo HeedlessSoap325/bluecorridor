@@ -40,9 +40,10 @@ type imageMetadata struct {
 }
 
 type bindMount struct {
-	ID     string `json:"id"`
-	Source string `json:"source"` // original Source as reported by Docker
-	IsDir  bool   `json:"isDir"`
+	ID        string `json:"id"`
+	Source    string `json:"source"`    // original Source as reported by Docker
+	NewSource string `json:"newsource"` // The new Source on the target (empty at export / overriden on import)
+	IsDir     bool   `json:"isDir"`
 }
 
 type dockerState struct {
